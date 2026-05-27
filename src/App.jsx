@@ -8,7 +8,7 @@ import {
 
 /* ─── CONSTANTS ─── */
 const CATEGORIES = [
-  { id:"semiconductor",       label:"Semiconductor",       icon:Cpu,        color:"#38BDF8", bg:"rgba(14,116,144,0.15)"  },
+  { id:"semiconductor",       label:"Semiconductor",        icon:Cpu,          color:"#38BDF8", bg:"rgba(14,116,144,0.15)"  },
   { id:"ai_biomedical",       label:"AI in Biomedical",     icon:Heart,        color:"#4ADE80", bg:"rgba(22,163,74,0.15)"   },
   { id:"materials",           label:"Materials Processing", icon:Layers,       color:"#FB923C", bg:"rgba(194,65,12,0.15)"   },
   { id:"ml",                  label:"Machine Learning",     icon:Brain,        color:"#C084FC", bg:"rgba(126,34,206,0.15)"  },
@@ -51,7 +51,7 @@ const FLAGS = {
 const COUNTRIES = [...Object.keys(FLAGS), "Other"];
 
 const COUNTRY_TZ = {
-  'USA':         'America/New_York',   
+  'USA':         'America/New_York',   // default Eastern (most universities)
   'Finland':     'Europe/Helsinki',
   'Switzerland': 'Europe/Zurich',
   'UK':          'Europe/London',
@@ -83,7 +83,7 @@ const getScheduleInfo = (country, dateStr) => {
   const profOff = getTzOffsetMin(tz, ref);
   const bdOff   = getTzOffsetMin(BD_TZ, ref);
   const diffMin = bdOff - profOff;
-  
+  // 10:17 AM prof time → BD time
   const profMin = 10 * 60 + 17;
   const bdMin   = ((profMin + diffMin) % 1440 + 1440) % 1440;
   const bdH = String(Math.floor(bdMin / 60)).padStart(2, '0');
@@ -170,13 +170,26 @@ async function callGemini(prompt) {
   const key = getKey();
   if(!key) throw new Error("NO_KEY");
   const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
     { method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ contents:[{ parts:[{ text: prompt }] }] }) }
   );
   const d = await r.json();
   if(d.error) throw new Error(d.error.message);
   return d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+}
+
+// Robustly extract JSON from Gemini response (handles markdown fences)
+function extractJSON(text) {
+  // Try raw parse first
+  try { return JSON.parse(text.trim()); } catch {}
+  // Strip markdown fences
+  const stripped = text.replace(/```json\s*/gi,"").replace(/```\s*/g,"").trim();
+  try { return JSON.parse(stripped); } catch {}
+  // Find first { ... } block
+  const match = text.match(/\{[\s\S]*\}/);
+  if(match) { try { return JSON.parse(match[0]); } catch {} }
+  throw new Error("Could not parse JSON from response");
 }
 
 async function suggestPaper(prof) {
@@ -198,8 +211,8 @@ Professor: ${prof.name}, research: ${prof.researchFocus}
 Their recent papers:
 ${list}
 Pick ONE paper (by number) most relevant for cold-emailing — should connect to ML surrogates, ion implantation, radiation effects, or computational materials.
-Reply ONLY with raw JSON: {"index":1,"reason":"one sentence why"}`);
-  const pick = JSON.parse(resp.replace(/\`\`\`json|\`\`\`/g,"").trim());
+Reply ONLY with raw JSON (no markdown): {"index":1,"reason":"one sentence why"}`);
+  const pick = extractJSON(resp);
   const chosen = papers[(pick.index||1)-1];
   if(!chosen) return papers[0] ? {...papers[0], doi:papers[0].externalIds?.DOI||null, reason:"Most recent relevant paper"} : null;
   return {...chosen, doi:chosen.externalIds?.DOI||null, reason:pick.reason};
@@ -220,8 +233,7 @@ async function fetchProfFromURL(input) {
     ? `Extract professor info from this webpage text:\n${pageText}\n\nReturn ONLY raw JSON (no markdown, no backticks):\n{"name":"Prof. Full Name","university":"Full University Name","country":"Country","email":"email or empty","researchFocus":"2-3 sentence summary","profileUrl":"${input}"}`
     : `Search your knowledge for this professor: "${input}"\n\nReturn ONLY raw JSON (no markdown, no backticks):\n{"name":"Prof. Full Name","university":"Full University Name","country":"Country","email":"email or empty","researchFocus":"2-3 sentence summary of their research","profileUrl":"their faculty page URL if known"}`;
   const text = await callGemini(prompt);
-  const clean = text.replace(/```json|```/g,"").trim();
-  return JSON.parse(clean);
+  return extractJSON(text);
 }
 
 async function summarizePaper(paper) {
@@ -305,6 +317,67 @@ function ProfCard({ prof, onClick }) {
       </div>
     </div>
   );
+}
+
+
+/* ─── PROF FETCH ─── */
+async function suggestPaper(prof) {
+  // Search Semantic Scholar for papers by this professor
+  const lastName = prof.name.split(" ").pop();
+  let papers = [];
+  try {
+    const r = await fetch(`https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(prof.name+" "+lastName)}&fields=title,abstract,year,authors,externalIds&limit=10`);
+    const d = await r.json();
+    papers = (d.data||[]).filter(p =>
+      p.authors?.some(a => a.name.toLowerCase().includes(lastName.toLowerCase()))
+    ).slice(0,7);
+  } catch {}
+  if(!papers.length) return null;
+
+  const list = papers.map((p,i)=>`${i+1}. "${p.title}" (${p.year||"?"})`).join("\n");
+  const resp = await callGemini(`I am a PhD applicant. My thesis: "${ME.thesis}" — 415× speedup over SRIM/Monte Carlo.
+Professor: ${prof.name}, research: ${prof.researchFocus}
+Their recent papers:
+${list}
+Pick ONE paper (by number) most relevant for cold-emailing — should connect to ML surrogates, ion implantation, radiation effects, or computational materials.
+Reply ONLY with raw JSON (no markdown): {"index":1,"reason":"one sentence why"}`);
+  const pick = extractJSON(resp);
+  const chosen = papers[(pick.index||1)-1];
+  if(!chosen) return papers[0] ? {...papers[0], doi:papers[0].externalIds?.DOI||null, reason:"Most recent relevant paper"} : null;
+  return {...chosen, doi:chosen.externalIds?.DOI||null, reason:pick.reason};
+}
+
+async function fetchProfFromURL(input) {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      tools: [{ type: "web_search_20250305", name: "web_search" }],
+      messages: [{
+        role: "user",
+        content: `Look up this professor and extract their details: "${input}"
+
+Search for their faculty page, lab website, or Google Scholar profile.
+
+Return ONLY a raw JSON object — no markdown, no backticks, no explanation:
+{
+  "name": "Prof. Full Name",
+  "university": "Full University Name",
+  "country": "Country (e.g. USA, Finland, UK, Germany)",
+  "email": "their email or empty string if not found",
+  "researchFocus": "2-3 sentence summary of their main research areas based on their page",
+  "profileUrl": "the URL of their faculty or lab page"
+}`
+      }]
+    })
+  });
+  const data = await response.json();
+  const textBlock = data.content?.find(c => c.type === "text");
+  if (!textBlock?.text) return null;
+  const clean = textBlock.text.replace(/```json|```/g, "").trim();
+  return JSON.parse(clean);
 }
 
 /* ─── SETTINGS MODAL ─── */
@@ -759,7 +832,7 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
 
           <button onClick={doGenEmail} disabled={genning} style={{width:"100%",background:genning?"rgba(124,58,237,0.4)":"linear-gradient(135deg,#0369A1,#7C3AED)",border:"none",borderRadius:12,padding:15,color:"white",fontSize:15,fontWeight:800,cursor:"pointer",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"center",gap:9,letterSpacing:"-0.3px",opacity:genning?0.8:1}}>
             {genning?<RefreshCw size={18} style={{animation:"spin 1s linear infinite"}}/>:<Brain size={18}/>}
-            {genning?"Generating your email...":email?"Regenerate Email":"Generate Email with Gemini"}
+            {genning?"Generating your email...":email?"Regenerate Email":"Generate Email with Claude"}
           </button>
 
           {email&&<>
