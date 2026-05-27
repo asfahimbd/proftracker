@@ -320,66 +320,6 @@ function ProfCard({ prof, onClick }) {
 }
 
 
-/* ─── PROF FETCH ─── */
-async function suggestPaper(prof) {
-  // Search Semantic Scholar for papers by this professor
-  const lastName = prof.name.split(" ").pop();
-  let papers = [];
-  try {
-    const r = await fetch(`https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(prof.name+" "+lastName)}&fields=title,abstract,year,authors,externalIds&limit=10`);
-    const d = await r.json();
-    papers = (d.data||[]).filter(p =>
-      p.authors?.some(a => a.name.toLowerCase().includes(lastName.toLowerCase()))
-    ).slice(0,7);
-  } catch {}
-  if(!papers.length) return null;
-
-  const list = papers.map((p,i)=>`${i+1}. "${p.title}" (${p.year||"?"})`).join("\n");
-  const resp = await callGemini(`I am a PhD applicant. My thesis: "${ME.thesis}" — 415× speedup over SRIM/Monte Carlo.
-Professor: ${prof.name}, research: ${prof.researchFocus}
-Their recent papers:
-${list}
-Pick ONE paper (by number) most relevant for cold-emailing — should connect to ML surrogates, ion implantation, radiation effects, or computational materials.
-Reply ONLY with raw JSON (no markdown): {"index":1,"reason":"one sentence why"}`);
-  const pick = extractJSON(resp);
-  const chosen = papers[(pick.index||1)-1];
-  if(!chosen) return papers[0] ? {...papers[0], doi:papers[0].externalIds?.DOI||null, reason:"Most recent relevant paper"} : null;
-  return {...chosen, doi:chosen.externalIds?.DOI||null, reason:pick.reason};
-}
-
-async function fetchProfFromURL(input) {
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
-      tools: [{ type: "web_search_20250305", name: "web_search" }],
-      messages: [{
-        role: "user",
-        content: `Look up this professor and extract their details: "${input}"
-
-Search for their faculty page, lab website, or Google Scholar profile.
-
-Return ONLY a raw JSON object — no markdown, no backticks, no explanation:
-{
-  "name": "Prof. Full Name",
-  "university": "Full University Name",
-  "country": "Country (e.g. USA, Finland, UK, Germany)",
-  "email": "their email or empty string if not found",
-  "researchFocus": "2-3 sentence summary of their main research areas based on their page",
-  "profileUrl": "the URL of their faculty or lab page"
-}`
-      }]
-    })
-  });
-  const data = await response.json();
-  const textBlock = data.content?.find(c => c.type === "text");
-  if (!textBlock?.text) return null;
-  const clean = textBlock.text.replace(/```json|```/g, "").trim();
-  return JSON.parse(clean);
-}
-
 /* ─── SETTINGS MODAL ─── */
 function SettingsModal({ onClose }) {
   const [key, setKey] = useState(localStorage.getItem("pt_gemini_key") || "");
