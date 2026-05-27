@@ -1,39 +1,31 @@
 import { useState, useEffect, useRef } from "react";
+import { createClient } from "@supabase/supabase-js";
 import {
   Cpu, Brain, Zap, Activity, Settings, CircuitBoard, Heart, Layers,
   Search, Plus, Mail, Bell, AlertTriangle, ArrowLeft, Send, Copy,
   Trash2, BookOpen, RefreshCw, Users, ChevronRight, X, CheckCircle,
   Download, Upload, Calendar, Sparkles, Clock, Link as LinkIcon, FileText,
-  Sun, Moon
+  Sun, Moon, Loader
 } from "lucide-react";
+
+/* ─── SUPABASE INITIALIZATION ─── */
+const SUPABASE_URL = "https://mpdqkxbkzuopgdfkstsz.supabase.co";
+const SUPABASE_KEY = "sb_publishable_nlsp1dlPxOpaVOce2dwZvw_WWTJ4J0w";
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ─── THEME CONSTANTS ─── */
 const THEMES = {
   dark: {
-    bg: "#030712",
-    card: "#0A1628",
-    cardDark: "#060D1A",
-    border: "#1E3A5F",
-    text: "#E2E8F0",
-    muted: "#64748B",
-    mutedText: "#94A3B8",
-    hover: "rgba(255,255,255,0.04)",
-    input: "#060D1A",
-    dangerBg: "#110505",
-    dangerBorder: "#5C1A1A"
+    bg: "#030712", card: "#0A1628", cardDark: "#060D1A",
+    border: "#1E3A5F", text: "#E2E8F0", muted: "#64748B",
+    mutedText: "#94A3B8", hover: "rgba(255,255,255,0.04)",
+    input: "#060D1A", dangerBg: "#110505", dangerBorder: "#5C1A1A"
   },
   light: {
-    bg: "#E2E8F0",
-    card: "#FFFFFF",
-    cardDark: "#F8FAFC",
-    border: "#CBD5E1",
-    text: "#0F172A",
-    muted: "#94A3B8",
-    mutedText: "#64748B",
-    hover: "rgba(0,0,0,0.03)",
-    input: "#F1F5F9",
-    dangerBg: "#FFF5F5",
-    dangerBorder: "#FECACA"
+    bg: "#E2E8F0", card: "#FFFFFF", cardDark: "#F8FAFC",
+    border: "#CBD5E1", text: "#0F172A", muted: "#94A3B8",
+    mutedText: "#64748B", hover: "rgba(0,0,0,0.03)",
+    input: "#F1F5F9", dangerBg: "#FFF5F5", dangerBorder: "#FECACA"
   }
 };
 
@@ -75,32 +67,18 @@ const ME = {
 };
 
 const FLAGS = {
-  USA:"🇺🇸", UK:"🇬🇧", Canada:"🇨🇦", Australia:"🇦🇺",
-  Germany:"🇩🇪", France:"🇫🇷", Switzerland:"🇨🇭", Netherlands:"🇳🇱",
-  Sweden:"🇸🇪", Finland:"🇫🇮", Denmark:"🇩🇰", Norway:"🇳🇴",
-  Belgium:"🇧🇪", Austria:"🇦🇹", Italy:"🇮🇹", Spain:"🇪🇸",
-  Luxembourg:"🇱🇺", Portugal:"🇵🇹", Poland:"🇵🇱", Czechia:"🇨🇿",
-  Japan:"🇯🇵", Singapore:"🇸🇬", "South Korea":"🇰🇷", China:"🇨🇳",
+  USA:"🇺🇸", UK:"🇬🇧", Canada:"🇨🇦", Australia:"🇦🇺", Germany:"🇩🇪", France:"🇫🇷", Switzerland:"🇨🇭", Netherlands:"🇳🇱",
+  Sweden:"🇸🇪", Finland:"🇫🇮", Denmark:"🇩🇰", Norway:"🇳🇴", Belgium:"🇧🇪", Austria:"🇦🇹", Italy:"🇮🇹", Spain:"🇪🇸",
+  Luxembourg:"🇱🇺", Portugal:"🇵🇹", Poland:"🇵🇱", Czechia:"🇨🇿", Japan:"🇯🇵", Singapore:"🇸🇬", "South Korea":"🇰🇷", China:"🇨🇳",
   India:"🇮🇳", "New Zealand":"🇳🇿", Ireland:"🇮🇪", Israel:"🇮🇱",
 };
 const COUNTRIES = [...Object.keys(FLAGS), "Other"];
 
 const COUNTRY_TZ = {
-  'USA':         'America/New_York',   
-  'Finland':     'Europe/Helsinki',
-  'Switzerland': 'Europe/Zurich',
-  'UK':          'Europe/London',
-  'Germany':     'Europe/Berlin',
-  'Sweden':      'Europe/Stockholm',
-  'France':      'Europe/Paris',
-  'Luxembourg':  'Europe/Luxembourg',
-  'Netherlands': 'Europe/Amsterdam',
-  'Canada':      'America/Toronto',
-  'Japan':       'Asia/Tokyo',
-  'Denmark':     'Europe/Copenhagen',
-  'Belgium':     'Europe/Brussels',
-  'Australia':   'Australia/Sydney',
-  'Singapore':   'Asia/Singapore',
+  'USA':'America/New_York', 'Finland':'Europe/Helsinki', 'Switzerland':'Europe/Zurich', 'UK':'Europe/London',
+  'Germany':'Europe/Berlin', 'Sweden':'Europe/Stockholm', 'France':'Europe/Paris', 'Luxembourg':'Europe/Luxembourg',
+  'Netherlands':'Europe/Amsterdam', 'Canada':'America/Toronto', 'Japan':'Asia/Tokyo', 'Denmark':'Europe/Copenhagen',
+  'Belgium':'Europe/Brussels', 'Australia':'Australia/Sydney', 'Singapore':'Asia/Singapore',
 };
 const BD_TZ = 'Asia/Dhaka';
 
@@ -128,23 +106,12 @@ const getScheduleInfo = (country, dateStr) => {
   return { profTime: '10:17', tz, bdTime: `${bdH}:${bdM}`, diffStr, tzLabel: tz.split('/').pop().replace('_', ' ') };
 };
 
-const INIT_PROFS = [];
-
 /* ─── UTILS ─── */
 const daysSince = d => d ? Math.floor((Date.now()-new Date(d))/86400000) : null;
 const isDark    = p => p.status==="email_sent" && p.emailSentDate && daysSince(p.emailSentDate)>=14;
 const uid       = () => Date.now().toString(36)+Math.random().toString(36).slice(2);
 const today     = () => new Date().toISOString().split("T")[0];
 const fuDate    = days => new Date(Date.now()+days*86400000).toISOString().split("T")[0];
-
-const logActivity = (profId, profName, action, detail="") => {
-  try {
-    const log = JSON.parse(localStorage.getItem("pt_log")||"[]");
-    log.unshift({id:uid(), profId, profName, action, detail, time:new Date().toISOString()});
-    localStorage.setItem("pt_log", JSON.stringify(log.slice(0,30)));
-  } catch {}
-};
-const getActivityLog = () => { try { return JSON.parse(localStorage.getItem("pt_log")||"[]"); } catch { return []; } };
 
 const timeAgo = t => {
   const m = Math.floor((Date.now()-new Date(t))/60000);
@@ -224,7 +191,6 @@ async function fetchProfFromURL(input) {
   return JSON.parse(clean);
 }
 
-// Generate email prompt
 async function generateEmail(prof, paper) {
   return callGemini(`You are helping a PhD applicant write a cold email to a professor. Write it naturally, like a real non-native English speaker (slightly formal, genuine, NOT AI-sounding).
 
@@ -258,39 +224,46 @@ STRICT INSTRUCTIONS:
 10. Occasional minor grammar imperfection is OK — feels human`);
 }
 
-/* ─── AUTH GATE ─── */
-const SITE_PASSWORD = "fahim@phd2027";
-
+/* ─── AUTH GATE (Supabase) ─── */
 function AuthGate({ onAuth }) {
-  const [pass, setPass] = useState("");
-  const [err,  setErr]  = useState(false);
-  const check = () => {
-    if(pass === SITE_PASSWORD) { sessionStorage.setItem("pt_auth","1"); onAuth(); }
-    else { setErr(true); setTimeout(()=>setErr(false),2000); }
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLogin, setIsLogin] = useState(true);
+  const [loading, setLoading] = useState(false);
+
+  const handleAuth = async () => {
+    if(!email || !password) return alert("Email & Password required");
+    setLoading(true);
+    if(isLogin) {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if(error) alert(error.message);
+    } else {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if(error) alert(error.message);
+      else alert("Sign up successful! Please log in.");
+    }
+    setLoading(false);
   };
+
   return (
     <div style={{background:"#030712",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"system-ui,sans-serif"}}>
-      <div style={{background:"#0A1628",borderRadius:16,padding:36,width:320,boxShadow:"0 10px 30px rgba(0,0,0,0.5)",border:"1px solid #1E3A5F",textAlign:"center"}}>
+      <div style={{background:"#0A1628",borderRadius:16,padding:36,width:340,boxShadow:"0 10px 30px rgba(0,0,0,0.5)",border:"1px solid #1E3A5F",textAlign:"center"}}>
         <div style={{fontSize:36,marginBottom:12}}>🎓</div>
         <div style={{fontSize:24,fontWeight:800,color:"#E2E8F0",marginBottom:4,letterSpacing:"-0.5px"}}>ProfTracker</div>
-        <div style={{fontSize:15,color:"#64748B",marginBottom:24}}>PhD Outreach Dashboard</div>
-        <input
-          type="password" value={pass} onChange={e=>setPass(e.target.value)}
-          placeholder="Enter password"
-          onKeyDown={e=>e.key==="Enter"&&check()}
-          style={{width:"100%",background:"#060D1A",border:`1px solid ${err?"#EF4444":"#1E3A5F"}`,borderRadius:10,padding:"14px 16px",fontSize:16,outline:"none",boxSizing:"border-box",color:"#E2E8F0",marginBottom:12,textAlign:"center",letterSpacing:"2px"}}
-          autoFocus
-        />
-        {err&&<div style={{fontSize:14,color:"#EF4444",marginBottom:10}}>Incorrect password</div>}
-        <button onClick={check} style={{width:"100%",background:"linear-gradient(135deg,#0369A1,#7C3AED)",border:"none",borderRadius:10,padding:14,color:"white",fontSize:16,fontWeight:700,cursor:"pointer"}}>
-          Enter
+        <div style={{fontSize:15,color:"#64748B",marginBottom:24}}>Secure Cloud Dashboard</div>
+        <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" style={{width:"100%",background:"#060D1A",border:`1px solid #1E3A5F`,borderRadius:10,padding:"14px 16px",fontSize:15,outline:"none",boxSizing:"border-box",color:"#E2E8F0",marginBottom:10}}/>
+        <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" onKeyDown={e=>e.key==="Enter"&&handleAuth()} style={{width:"100%",background:"#060D1A",border:`1px solid #1E3A5F`,borderRadius:10,padding:"14px 16px",fontSize:15,outline:"none",boxSizing:"border-box",color:"#E2E8F0",marginBottom:16}}/>
+        
+        <button onClick={handleAuth} disabled={loading} style={{width:"100%",background:"linear-gradient(135deg,#0369A1,#7C3AED)",border:"none",borderRadius:10,padding:14,color:"white",fontSize:16,fontWeight:700,cursor:"pointer",marginBottom:16}}>
+          {loading ? "Please wait..." : (isLogin ? "Login" : "Create Account")}
         </button>
+        <div onClick={()=>setIsLogin(!isLogin)} style={{fontSize:13,color:"#38BDF8",cursor:"pointer"}}>{isLogin ? "Need an account? Sign Up" : "Have an account? Login"}</div>
       </div>
     </div>
   );
 }
 
-/* ─── EMAIL TEMPLATES (Category-wise) ─── */
+/* ─── EMAIL TEMPLATES ─── */
 const EMAIL_TEMPLATES = {
   semiconductor: {
     label:"Semiconductor / Ion Implantation",
@@ -346,8 +319,6 @@ function AddModal({ onAdd, onClose, defaultCat, profs, t }) {
   const [f, setF] = useState({ name:"", university:"", country:"USA", email:"", profileUrl:"", categories: defaultCat ? [defaultCat] : [], tier:1, researchFocus:"", notes:"" });
 
   const set       = (k, v) => setF(p => ({ ...p, [k]: v }));
-  
-  // Single selection category logic
   const selectCat = id => setF(p => ({ ...p, categories: [id] })); 
   
   const inp = { background:t.input, border:`1px solid ${t.border}`, borderRadius:8, padding:"12px 14px", color:t.text, fontSize:15, outline:"none", boxSizing:"border-box", width:"100%" };
@@ -366,24 +337,12 @@ function AddModal({ onAdd, onClose, defaultCat, profs, t }) {
   };
 
   const handleAdd = () => {
-    if (!f.name.trim() || !f.university.trim()) {
-       setFetchErr("Name and University are required.");
-       return;
-    }
-    if (f.categories.length === 0) {
-       setFetchErr("Please select 1 category.");
-       return;
-    }
-    
-    // Check for duplicate email
+    if (!f.name.trim() || !f.university.trim()) return setFetchErr("Name and University are required.");
+    if (f.categories.length === 0) return setFetchErr("Please select 1 category.");
     if (f.email.trim()) {
       const isDuplicate = profs.some(p => p.email && p.email.toLowerCase().trim() === f.email.toLowerCase().trim());
-      if (isDuplicate) {
-         setFetchErr("Warning: A professor with this email is already added in the tracker!");
-         return;
-      }
+      if (isDuplicate) return setFetchErr("Warning: A professor with this email is already added in the tracker!");
     }
-
     onAdd({ ...f, id:uid(), papers:[], status:"not_contacted", emailSentDate:null, followUpDate:null, scheduledDate:null, scheduledTime:"10:09", lastActivity:null });
   };
 
@@ -457,8 +416,30 @@ function AddModal({ onAdd, onClose, defaultCat, profs, t }) {
   );
 }
 
+/* ─── SETTINGS MODAL ─── */
+function SettingsModal({ onClose, t }) {
+  const [key, setKey] = useState(localStorage.getItem("pt_gemini_key") || "");
+  const [saved, setSaved] = useState(false);
+  const save = () => { localStorage.setItem("pt_gemini_key", key.trim()); setSaved(true); setTimeout(() => setSaved(false), 2000); };
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:t.card,borderRadius:16,padding:24,width:"100%",maxWidth:400,border:`1px solid ${t.border}`}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+          <span style={{fontSize:16,fontWeight:800,color:t.text}}>⚙️ Settings</span>
+          <button onClick={onClose} style={{background:"none",border:"none",color:t.muted,cursor:"pointer"}}><X size={18}/></button>
+        </div>
+        <label style={{fontSize:13,color:t.muted,display:"block",marginBottom:8,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.5px"}}>Gemini API Key</label>
+        <input type="password" value={key} onChange={e=>setKey(e.target.value)} placeholder="AIzaSy..." style={{width:"100%",background:t.input,border:`1px solid ${t.border}`,borderRadius:8,padding:"12px 14px",color:t.text,fontSize:15,outline:"none",boxSizing:"border-box",marginBottom:12}} />
+        <button onClick={save} style={{width:"100%",background:saved?"rgba(74,222,128,0.2)":"linear-gradient(135deg,#0369A1,#7C3AED)",border:saved?"none":"none",borderRadius:10,padding:14,color:saved?"#4ADE80":"white",fontSize:15,fontWeight:800,cursor:"pointer"}}>
+          {saved ? "✓ Saved!" : "Save Key"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ─── DETAIL VIEW ─── */
-function DetailView({ prof, onBack, onUpdate, onDelete, t }) {
+function DetailView({ prof, onBack, onUpdate, onDelete, t, session, logActivity }) {
   const [tab,setTab]           = useState("overview");
   const [doi,setDoi]           = useState("");
   const [fetching,setFetching] = useState(false);
@@ -467,6 +448,7 @@ function DetailView({ prof, onBack, onUpdate, onDelete, t }) {
   
   const fileInputRef = useRef(null);
   const [paperLink, setPaperLink] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const [email,setEmail]       = useState(()=>localStorage.getItem("pt_email_draft_"+prof.id)||"");
   const [genning,setGenning]   = useState(false);
@@ -492,23 +474,29 @@ function DetailView({ prof, onBack, onUpdate, onDelete, t }) {
     setFetching(false);
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if(!file) return;
-    if(file.size > 2 * 1024 * 1024) {
-      alert("⚠️ File is too large! LocalStorage limit is ~5MB total. Please use the 'Add Link' option instead.");
-      e.target.value = null;
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${uid()}.${fileExt}`;
+    const filePath = `${session.user.id}/${fileName}`;
+
+    setUploading(true);
+    const { error: uploadError } = await supabase.storage.from('papers').upload(filePath, file);
+
+    if (uploadError) {
+      alert("Upload failed: " + uploadError.message);
+      setUploading(false);
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const np = { id:uid(), title: file.name, authors: "Uploaded PDF", year: new Date().getFullYear(), source: "Local File", pdfBase64: ev.target.result };
-        onUpdate({papers:[...(prof.papers||[]), np]});
-        setSelPaper(np);
-      } catch(err) { alert("Error saving file. Quota exceeded."); }
-    };
-    reader.readAsDataURL(file);
+
+    const { data: { publicUrl } } = supabase.storage.from('papers').getPublicUrl(filePath);
+
+    const np = { id:uid(), title: file.name, authors: "Uploaded PDF", year: new Date().getFullYear(), source: "Supabase Cloud", externalLink: publicUrl };
+    onUpdate({papers:[...(prof.papers||[]), np]});
+    setSelPaper(np);
+    setUploading(false);
     e.target.value = null;
   };
 
@@ -675,8 +663,9 @@ function DetailView({ prof, onBack, onUpdate, onDelete, t }) {
 
             <div>
               <input type="file" accept="application/pdf" ref={fileInputRef} onChange={handleFileUpload} style={{display:"none"}} />
-              <button onClick={()=>fileInputRef.current.click()} style={{width:"100%",background:t.hover,border:`1px dashed ${t.muted}`,borderRadius:10,padding:"14px",color:t.mutedText,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,fontSize:15,fontWeight:600}}>
-                <Upload size={16}/> Upload PDF (Max 2MB LocalStorage)
+              <button onClick={()=>fileInputRef.current.click()} disabled={uploading} style={{width:"100%",background:t.hover,border:`1px dashed ${t.muted}`,borderRadius:10,padding:"14px",color:t.mutedText,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,fontSize:15,fontWeight:600}}>
+                {uploading ? <Loader size={16} style={{animation:"spin 1s linear infinite"}}/> : <Upload size={16}/>} 
+                {uploading ? "Uploading to Cloud..." : "Upload PDF (Supabase Cloud)"}
               </button>
             </div>
           </div>
@@ -688,15 +677,8 @@ function DetailView({ prof, onBack, onUpdate, onDelete, t }) {
               
               {paper.externalLink && (
                 <a href={paper.externalLink} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:13,color:"#38BDF8",marginBottom:14,textDecoration:"none",background:"rgba(56,189,248,0.1)",padding:"6px 12px",borderRadius:6,fontWeight:700}}>
-                  <LinkIcon size={14} style={{marginRight:6,verticalAlign:"middle"}}/> Open External Link
+                  <LinkIcon size={14} style={{marginRight:6,verticalAlign:"middle"}}/> Open Paper Link
                 </a>
-              )}
-              {paper.pdfBase64 && (
-                <div style={{marginBottom:14}}>
-                   <a href={paper.pdfBase64} download={paper.title+".pdf"} style={{display:"inline-block",fontSize:13,color:"#4ADE80",textDecoration:"none",background:"rgba(74,222,128,0.1)",padding:"6px 12px",borderRadius:6,fontWeight:700}}>
-                     <Download size={14} style={{marginRight:6,verticalAlign:"middle"}}/> Download Saved PDF
-                   </a>
-                </div>
               )}
 
               <div style={{display:"flex",gap:10}}>
@@ -774,9 +756,28 @@ function DetailView({ prof, onBack, onUpdate, onDelete, t }) {
   );
 }
 
-/* ─── MAIN APP ─── */
-export default function ProfTracker() {
-  const [authed, setAuthed] = useState(()=>sessionStorage.getItem("pt_auth")==="1");
+/* ─── MAIN APP COMPONENT ─── */
+export default function App() {
+  const [session, setSession] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthChecked(true);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (!authChecked) return <div style={{background:"#030712", minHeight:"100vh"}}></div>;
+  if (!session) return <AuthGate />;
+
+  return <ProfTracker session={session} />;
+}
+
+/* ─── ACTUAL TRACKER LOGIC ─── */
+function ProfTracker({ session }) {
   const [themeMode, setThemeMode] = useState(()=>localStorage.getItem("pt_theme")||"dark");
   const t = THEMES[themeMode];
 
@@ -786,24 +787,59 @@ export default function ProfTracker() {
     localStorage.setItem("pt_theme", next);
   };
 
-  if(!authed) return <AuthGate onAuth={()=>setAuthed(true)}/>;
-
-  const [profs, setProfs] = useState(()=>{
-    try { const s=localStorage.getItem("pt_v2"); return s?JSON.parse(s):INIT_PROFS; }
-    catch { return INIT_PROFS; }
-  });
+  const [profs, setProfs] = useState([]);
+  const [activityLog, setActivityLog] = useState([]);
   const [view,setView]       = useState("home");
   const [catId,setCatId]     = useState(null);
   const [profId,setProfId]   = useState(null);
   const [addModal,setAddModal]= useState(false);
-  const [activityLog, setActivityLog] = useState(getActivityLog);
   const [search,setSearch]   = useState("");
   const [cFilter,setCFilter] = useState("All");
   const [tFilter,setTFilter] = useState("All");
   const [sFilter,setSFilter] = useState("All");
   const [showSettings, setShowSettings] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
-  useEffect(()=>{ try{localStorage.setItem("pt_v2",JSON.stringify(profs));}catch{} },[profs]);
+  // Load Data and Auto-Migrate from LocalStorage
+  useEffect(() => {
+    const loadData = async () => {
+      const { data: pData } = await supabase.from('prof_data').select('data');
+      const localData = localStorage.getItem('pt_v2');
+      
+      // Auto-Migration! If Supabase is empty but LocalStorage has data, move it to cloud
+      if ((!pData || pData.length === 0) && localData) {
+        const parsedLocal = JSON.parse(localData);
+        if (parsedLocal.length > 0) {
+          alert("Migrating your old local data to Supabase Cloud...");
+          for (const p of parsedLocal) {
+            await supabase.from('prof_data').insert({ id: p.id, user_id: session.user.id, data: p });
+          }
+          localStorage.removeItem('pt_v2'); 
+          setProfs(parsedLocal);
+        }
+      } else if (pData) {
+        setProfs(pData.map(row => row.data));
+      }
+
+      // Migrate Activity Log
+      const { data: aData } = await supabase.from('activity_data').select('data').order('created_at', { ascending: false }).limit(30);
+      const localLog = localStorage.getItem('pt_log');
+      
+      if ((!aData || aData.length === 0) && localLog) {
+        const parsedLog = JSON.parse(localLog);
+        for (const act of parsedLog) {
+           await supabase.from('activity_data').insert({ id: act.id, user_id: session.user.id, data: act });
+        }
+        localStorage.removeItem('pt_log');
+        setActivityLog(parsedLog);
+      } else if (aData) {
+        setActivityLog(aData.map(row => row.data));
+      }
+      
+      setDataLoaded(true);
+    };
+    loadData();
+  }, [session]);
 
   useEffect(()=>{
     if("Notification" in window && Notification.permission==="default") Notification.requestPermission();
@@ -813,17 +849,30 @@ export default function ProfTracker() {
         new Notification("📧 Follow-up Due — ProfTracker",{body:`Time to follow up with ${p.name}`});
       });
     }
-  },[]);
+  },[profs]);
 
-  const update = (id,upd) => {
-    setProfs(p=>p.map(x=>x.id===id?{...x,...upd}:x));
-    setActivityLog(getActivityLog());
+  // CRUD via Supabase + Optimistic UI
+  const update = async (id, upd) => {
+    const updatedProf = { ...profs.find(p=>p.id===id), ...upd };
+    setProfs(p=>p.map(x=>x.id===id?updatedProf:x));
+    await supabase.from('prof_data').update({ data: updatedProf }).eq('id', id);
   };
-  const del    = id        => setProfs(p=>p.filter(x=>x.id!==id));
-  const add    = prof      => {
-    logActivity(prof.id, prof.name, "Professor Added", prof.university);
+  
+  const del = async (id) => {
+    setProfs(p=>p.filter(x=>x.id!==id));
+    await supabase.from('prof_data').delete().eq('id', id);
+  };
+  
+  const add = async (prof) => {
     setProfs(p=>[...p,prof]);
-    setActivityLog(getActivityLog());
+    await supabase.from('prof_data').insert({ id: prof.id, user_id: session.user.id, data: prof });
+    logAct(prof.id, prof.name, "Professor Added", prof.university);
+  };
+
+  const logAct = async (profId, profName, action, detail="") => {
+    const newAct = { id:uid(), profId, profName, action, detail, time:new Date().toISOString() };
+    setActivityLog(prev => [newAct, ...prev].slice(0,30));
+    await supabase.from('activity_data').insert({ id: newAct.id, user_id: session.user.id, data: newAct });
   };
 
   const exportData = () => {
@@ -831,9 +880,7 @@ export default function ProfTracker() {
     const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="proftracker_backup.json"; a.click();
   };
   const importData = () => {
-    const input=document.createElement("input"); input.type="file"; input.accept=".json";
-    input.onchange=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>{try{setProfs(JSON.parse(ev.target.result));}catch{alert("Invalid file");}};r.readAsText(file);};
-    input.click();
+    alert("Since data is in the cloud now, manual JSON import is disabled to prevent overwriting cloud data.");
   };
 
   const followUps = profs.filter(p=>p.followUpDate&&daysSince(p.followUpDate)>=0&&p.status==="email_sent");
@@ -847,6 +894,8 @@ export default function ProfTracker() {
   
   const getCatProfs = id => profs.filter(p=>p.categories?.includes(id));
   const nav = id => {setCatId(id);setCFilter("All");setTFilter("All");setSFilter("All");setSearch("");setView("category");};
+
+  if(!dataLoaded) return <div style={{background:t.bg, minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:t.text}}><Loader size={30} style={{animation:"spin 1s linear infinite"}}/></div>;
 
   return (
     <div style={{background:t.bg,color:t.text,minHeight:"100vh",display:"flex",justifyContent:"center",fontFamily:"'SF Pro Display',-apple-system,system-ui,sans-serif"}}>
@@ -863,7 +912,6 @@ export default function ProfTracker() {
           <div style={{display:"flex",gap:10,alignItems:"center"}}>
             <button onClick={toggleTheme} title="Toggle Theme" style={{background:t.hover,border:`1px solid ${t.border}`,borderRadius:10,padding:10,cursor:"pointer",display:"flex"}}>{themeMode==="dark"?<Sun size={16} color="#FBBF24"/>:<Moon size={16} color="#64748B"/>}</button>
             <button onClick={exportData} title="Export backup" style={{background:t.hover,border:`1px solid ${t.border}`,borderRadius:10,padding:10,cursor:"pointer",display:"flex"}}><Download size={16} color={t.muted}/></button>
-            <button onClick={importData} title="Import backup" style={{background:t.hover,border:`1px solid ${t.border}`,borderRadius:10,padding:10,cursor:"pointer",display:"flex"}}><Upload size={16} color={t.muted}/></button>
             <button onClick={()=>setShowSettings(true)} title="Settings" style={{background:!getKey()?"rgba(251,191,36,0.15)":t.hover,border:`1px solid ${!getKey()?"#FBBF24":t.border}`,borderRadius:10,padding:10,cursor:"pointer",display:"flex"}}><Settings size={16} color={!getKey()?"#FBBF24":t.muted}/></button>
 
             <div style={{position:"relative",cursor:"pointer",marginLeft:4}}>
@@ -1000,7 +1048,7 @@ export default function ProfTracker() {
             {view === "detail" && profId && (() => {
               const prof=profs.find(p=>p.id===profId);
               if(!prof){setView("home");return null;}
-              return <DetailView prof={prof} t={t} onBack={()=>setView(catId?"category":"home")} onUpdate={upd=>update(profId,upd)} onDelete={()=>{del(profId);setView("home");}}/>;
+              return <DetailView prof={prof} t={t} session={session} logActivity={logAct} onBack={()=>setView(catId?"category":"home")} onUpdate={upd=>update(profId,upd)} onDelete={()=>{del(profId);setView("home");}}/>;
             })()}
             
           </div>
@@ -1013,7 +1061,7 @@ export default function ProfTracker() {
             
             {activityLog.length===0&&<div style={{textAlign:"center",color:t.muted,fontSize:14,padding:"30px 0",fontWeight:600}}>No activity yet.</div>}
             
-            {activityLog.slice(0,15).map(a=>(
+            {activityLog.map(a=>(
               <div key={a.id} 
                    onClick={()=>{if(a.profId){setProfId(a.profId);setView("detail");}}}
                    style={{display:"flex",alignItems:"flex-start",gap:12,padding:"14px 12px",borderBottom:`1px solid ${t.border}`,cursor:a.profId?"pointer":"default",borderRadius:8,transition:"background 0.2s"}}
@@ -1048,7 +1096,7 @@ export default function ProfTracker() {
         </button>
 
         {addModal&&<AddModal t={t} profs={profs} defaultCat={catId} onAdd={p=>{add(p);setAddModal(false);}} onClose={()=>setAddModal(false)}/>}
-        {showSettings&&<SettingsModal onClose={()=>setShowSettings(false)}/>}
+        {showSettings&&<SettingsModal t={t} onClose={()=>setShowSettings(false)}/>}
       </div>
     </div>
   );
