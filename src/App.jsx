@@ -26,6 +26,7 @@ const STATUS = {
   replied:       { label:"Replied ✓",      color:"#4ADE80", dot:"#16A34A" },
   interview:     { label:"⭐ Interview",   color:"#FDE68A", dot:"#F59E0B" },
   no_response:   { label:"No Response",    color:"#F87171", dot:"#DC2626" },
+  bounced:       { label:"⚠ Email Bounced", color:"#FB923C", dot:"#EA580C" },
 };
 
 const ME = {
@@ -43,10 +44,13 @@ const ME = {
 };
 
 const FLAGS = {
-  USA:"🇺🇸", Finland:"🇫🇮", Switzerland:"🇨🇭", Germany:"🇩🇪",
-  UK:"🇬🇧", Sweden:"🇸🇪", France:"🇫🇷", Luxembourg:"🇱🇺",
-  Netherlands:"🇳🇱", Canada:"🇨🇦", Japan:"🇯🇵", Denmark:"🇩🇰",
-  Belgium:"🇧🇪", Australia:"🇦🇺", Singapore:"🇸🇬",
+  USA:"🇺🇸", UK:"🇬🇧", Canada:"🇨🇦", Australia:"🇦🇺",
+  Germany:"🇩🇪", France:"🇫🇷", Switzerland:"🇨🇭", Netherlands:"🇳🇱",
+  Sweden:"🇸🇪", Finland:"🇫🇮", Denmark:"🇩🇰", Norway:"🇳🇴",
+  Belgium:"🇧🇪", Austria:"🇦🇹", Italy:"🇮🇹", Spain:"🇪🇸",
+  Luxembourg:"🇱🇺", Portugal:"🇵🇹", Poland:"🇵🇱", Czechia:"🇨🇿",
+  Japan:"🇯🇵", Singapore:"🇸🇬", "South Korea":"🇰🇷", China:"🇨🇳",
+  India:"🇮🇳", "New Zealand":"🇳🇿", Ireland:"🇮🇪", Israel:"🇮🇱",
 };
 const COUNTRIES = [...Object.keys(FLAGS), "Other"];
 
@@ -184,13 +188,126 @@ ABSTRACT: ${paper.abstract?.slice(0,600)}` : ''}
 Rules: Start "Dear Prof. [lastname],", reference specific paper detail, 200-250 words max, ask for PhD Fall 2027, sign "Best regards, Abdullah Shadek Fahim". No "I am writing to express my interest".`;
 }
 
+
+/* ─── AUTH GATE ─── */
+const SITE_PASSWORD = "asfahim1706"; // Change this password
+
+function AuthGate({ onAuth }) {
+  const [pass, setPass] = useState("");
+  const [err,  setErr]  = useState(false);
+  const check = () => {
+    if(pass === SITE_PASSWORD) { sessionStorage.setItem("pt_auth","1"); onAuth(); }
+    else { setErr(true); setTimeout(()=>setErr(false),2000); }
+  };
+  return (
+    <div style={{background:"#F4F6F9",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"system-ui,sans-serif"}}>
+      <div style={{background:"#FFFFFF",borderRadius:16,padding:36,width:320,boxShadow:"0 4px 24px rgba(0,0,0,0.10)",border:"1px solid #E4E8EF",textAlign:"center"}}>
+        <div style={{fontSize:32,marginBottom:12}}>🎓</div>
+        <div style={{fontSize:20,fontWeight:800,color:"#111827",marginBottom:4,letterSpacing:"-0.5px"}}>ProfTracker</div>
+        <div style={{fontSize:13,color:"#6B7280",marginBottom:24}}>PhD Outreach Dashboard</div>
+        <input
+          type="password" value={pass} onChange={e=>setPass(e.target.value)}
+          placeholder="Enter password"
+          onKeyDown={e=>e.key==="Enter"&&check()}
+          style={{width:"100%",background:"#F4F6F9",border:`1px solid ${err?"#FCA5A5":"#E4E8EF"}`,borderRadius:10,padding:"12px 14px",fontSize:14,outline:"none",boxSizing:"border-box",color:"#111827",marginBottom:10,textAlign:"center",letterSpacing:"2px"}}
+          autoFocus
+        />
+        {err&&<div style={{fontSize:12,color:"#EF4444",marginBottom:8}}>Incorrect password</div>}
+        <button onClick={check} style={{width:"100%",background:"linear-gradient(135deg,#2563EB,#7C3AED)",border:"none",borderRadius:10,padding:12,color:"white",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+          Enter
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── EMAIL TEMPLATES (Category-wise) ─── */
+const EMAIL_TEMPLATES = {
+  semiconductor: {
+    label:"Semiconductor / Ion Implantation",
+    subject:"Prospective PhD Inquiry – ML Surrogate for Ion Implantation / [Prof Name]",
+    body:`Dear Prof. [Lastname],
+
+[PAPER-SPECIFIC OBSERVATION — 1-2 sentences referencing a specific finding from their paper]
+
+I am a final-year B.Sc. graduate in Electrical and Electronic Engineering from Jashore University of Science and Technology (JUST), Bangladesh, with a CGPA of 3.80/4.00. My thesis developed a Dual-Stage Hybrid Random Forest framework for forward and inverse modeling of ion implantation in Si, 4H-SiC, and GaAs substrates, achieving a 415× speedup over SRIM/Monte Carlo simulation while maintaining high accuracy.
+
+My recent publications include a journal paper under review at Computational Materials Science (first author) on ML-based multi-output ion range and damage prediction, a second journal under review at Fusion Engineering and Design on MD simulation of hydrogen implantation in tungsten, and an accepted paper at IEEE ICOPS 2026.
+
+Your group's expertise in [SPECIFIC RESEARCH AREA] aligns closely with my background in physics-informed machine learning for ion-solid interactions. I believe I could contribute meaningfully to ongoing work in [SPECIFIC PROJECT/DIRECTION].
+
+I am writing to inquire about PhD openings for Fall 2027. Would you be open to a brief email exchange or conversation about potential opportunities?
+
+Best regards,
+Abdullah Shadek Fahim
+asfahimbd@gmail.com`
+  },
+  ml: {
+    label:"Machine Learning for Materials",
+    subject:"Prospective PhD Inquiry – ML Surrogate Modeling / [Prof Name]",
+    body:`Dear Prof. [Lastname],
+
+[PAPER-SPECIFIC OBSERVATION — reference a specific technique or result from their paper]
+
+I am a B.Sc. graduate in Electrical and Electronic Engineering from JUST, Bangladesh (CGPA 3.80/4.00). My thesis designed a Dual-Stage Hybrid Random Forest surrogate model for ion implantation prediction in Si, SiC, and GaAs — achieving 415× speedup over physics-based Monte Carlo simulation while preserving physical accuracy through a Gatekeeper constraint mechanism.
+
+I have a journal paper under review at Computational Materials Science (first author), a second under review at Fusion Engineering and Design (2nd author), and an accepted paper at IEEE ICOPS 2026.
+
+Your research on [SPECIFIC ML METHOD/APPLICATION] directly intersects with my interest in physics-informed machine learning and fast surrogate modeling for materials simulation. I am particularly interested in [SPECIFIC ASPECT of their work].
+
+I am exploring PhD opportunities for Fall 2027. I would be grateful to know if you anticipate any openings and whether my background might be a good fit.
+
+Best regards,
+Abdullah Shadek Fahim
+asfahimbd@gmail.com`
+  },
+  materials: {
+    label:"Materials Processing / Radiation Effects",
+    subject:"Prospective PhD Inquiry – Computational Materials / [Prof Name]",
+    body:`Dear Prof. [Lastname],
+
+[PAPER-SPECIFIC OBSERVATION — cite a specific result about defect formation, damage cascades, or processing outcomes]
+
+I am a recent B.Sc. graduate in EEE from JUST, Bangladesh (CGPA 3.80/4.00). My thesis work focused on building ML surrogate models to replace computationally expensive SRIM/Monte Carlo ion implantation simulations — achieving 415× speedup for predicting ion ranges and damage profiles in Si, SiC, and GaAs.
+
+Publications: journal under review at Computational Materials Science (first author), journal under review at Fusion Engineering and Design (2nd author, MD simulation of H in tungsten), and an accepted conference paper at IEEE ICOPS 2026.
+
+Your work on [SPECIFIC TOPIC — radiation damage, defect engineering, processing simulation] resonates strongly with my research direction. I am eager to extend my surrogate modeling approach to [SPECIFIC APPLICATION in their lab].
+
+I am seeking PhD positions for Fall 2027 and would greatly appreciate any information about openings in your group.
+
+Best regards,
+Abdullah Shadek Fahim
+asfahimbd@gmail.com`
+  },
+  default: {
+    label:"General Template",
+    subject:"Prospective PhD Inquiry – [Research Area] / [Prof Name]",
+    body:`Dear Prof. [Lastname],
+
+[PAPER-SPECIFIC OBSERVATION]
+
+I am a B.Sc. graduate in Electrical and Electronic Engineering from JUST, Bangladesh (CGPA 3.80/4.00). My thesis developed a Dual-Stage Hybrid Random Forest framework for ion implantation modeling, achieving 415× speedup over SRIM/Monte Carlo simulation.
+
+Publications: under review at Computational Materials Science (first author), under review at Fusion Engineering and Design (2nd author), and accepted at IEEE ICOPS 2026.
+
+[WHY THIS LAB — 1-2 specific sentences]
+
+I am applying for PhD positions for Fall 2027 and would appreciate knowing about any available opportunities.
+
+Best regards,
+Abdullah Shadek Fahim
+asfahimbd@gmail.com`
+  }
+};
+
 /* ─── PROF CARD ─── */
 function ProfCard({ prof, onClick }) {
   const dark = isDark(prof);
   const st   = STATUS[prof.status]||STATUS.not_contacted;
   const ds   = daysSince(prof.emailSentDate);
   return (
-    <div onClick={onClick} style={{background:dark?"#FFF5F5":"#F1F5F9",border:`1px solid ${dark?"#FECACA":"#E2E8F0"}`,borderRadius:14,padding:16,cursor:"pointer",opacity:dark?0.85:1,position:"relative",transition:"transform 0.15s",userSelect:"none"}}
+    <div onClick={onClick} style={{background:dark?"#FFF5F5":"#F4F6F9",border:`1px solid ${dark?"#FECACA":"#E4E8EF"}`,borderRadius:14,padding:16,cursor:"pointer",opacity:dark?0.85:1,position:"relative",transition:"transform 0.15s",userSelect:"none"}}
       onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
       onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
       <div style={{position:"absolute",top:12,right:12,fontSize:10,fontWeight:800,padding:"2px 7px",borderRadius:5,background:prof.tier===1?"rgba(239,68,68,0.15)":prof.tier===2?"rgba(251,191,36,0.12)":"rgba(74,222,128,0.1)",color:prof.tier===1?"#F87171":prof.tier===2?"#FBBF24":"#4ADE80",border:`1px solid ${prof.tier===1?"#F8717144":prof.tier===2?"#FBBF2444":"#4ADE8044"}`}}>T{prof.tier}</div>
@@ -226,7 +343,7 @@ function AddModal({ onAdd, onClose, defaultCat }) {
 
   const set       = (k, v) => setF(p => ({ ...p, [k]: v }));
   const toggleCat = id => setF(p => ({ ...p, categories: p.categories.includes(id) ? p.categories.filter(c => c !== id) : [...p.categories, id] }));
-  const inp = { background:"#F1F5F9", border:"1px solid #DBEAFE", borderRadius:8, padding:"10px 12px", color:"#111827", fontSize:13, outline:"none", boxSizing:"border-box", width:"100%" };
+  const inp = { background:"#F4F6F9", border:"1px solid #DBEAFE", borderRadius:8, padding:"10px 12px", color:"#111827", fontSize:13, outline:"none", boxSizing:"border-box", width:"100%" };
 
   const doFetch = async () => {
     if (!urlInput.trim()) return;
@@ -270,7 +387,7 @@ function AddModal({ onAdd, onClose, defaultCat }) {
         </div>
 
         {/* Mode toggle */}
-        <div style={{display:"flex",gap:8,marginBottom:20,background:"#F1F5F9",borderRadius:10,padding:4,border:"1px solid #DBEAFE"}}>
+        <div style={{display:"flex",gap:8,marginBottom:20,background:"#F4F6F9",borderRadius:10,padding:4,border:"1px solid #DBEAFE"}}>
           {[["auto","🔗 Auto (URL/Name)"],["manual","✏️ Manual"]].map(([m,lbl])=>(
             <button key={m} onClick={()=>{setMode(m);setFetched(false);setFetchErr("");}} style={{flex:1,padding:"8px 4px",borderRadius:8,border:"none",background:mode===m?"linear-gradient(135deg,#0369A1,#7C3AED)":"transparent",color:mode===m?"white":"#9CA3AF",cursor:"pointer",fontSize:13,fontWeight:700,transition:"all 0.2s"}}>{lbl}</button>
           ))}
@@ -310,7 +427,7 @@ function AddModal({ onAdd, onClose, defaultCat }) {
             <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:8,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"}}>Tier</label>
             <div style={{display:"flex",gap:8}}>
               {[[1,"High","#F87171","rgba(239,68,68,0.1)"],[2,"Medium","#FBBF24","rgba(251,191,36,0.1)"],[3,"Explore","#4ADE80","rgba(74,222,128,0.1)"]].map(([t,desc,col,bg])=>(
-                <button key={t} onClick={()=>set("tier",t)} style={{flex:1,padding:"10px 4px",borderRadius:9,border:`1px solid ${f.tier===t?col:"#DBEAFE"}`,background:f.tier===t?bg:"transparent",color:f.tier===t?col:"#9CA3AF",cursor:"pointer",fontWeight:700,fontSize:13}}>
+                <button key={t} onClick={()=>set("tier",t)} style={{flex:1,padding:"10px 4px",borderRadius:9,border:`1px solid ${f.tier===t?col:"#E0EAFF"}`,background:f.tier===t?bg:"transparent",color:f.tier===t?col:"#9CA3AF",cursor:"pointer",fontWeight:700,fontSize:13}}>
                   T{t}<div style={{fontSize:9,fontWeight:400,marginTop:2}}>{desc}</div>
                 </button>
               ))}
@@ -320,7 +437,7 @@ function AddModal({ onAdd, onClose, defaultCat }) {
             <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:8,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"}}>Categories</label>
             <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
               {CATEGORIES.map(c=>(
-                <button key={c.id} onClick={()=>toggleCat(c.id)} style={{padding:"5px 12px",borderRadius:20,border:`1px solid ${f.categories.includes(c.id)?c.color:"#DBEAFE"}`,background:f.categories.includes(c.id)?c.bg:"transparent",color:f.categories.includes(c.id)?c.color:"#9CA3AF",cursor:"pointer",fontSize:11,fontWeight:600}}>{c.label}</button>
+                <button key={c.id} onClick={()=>toggleCat(c.id)} style={{padding:"5px 12px",borderRadius:20,border:`1px solid ${f.categories.includes(c.id)?c.color:"#E0EAFF"}`,background:f.categories.includes(c.id)?c.bg:"transparent",color:f.categories.includes(c.id)?c.color:"#9CA3AF",cursor:"pointer",fontSize:11,fontWeight:600}}>{c.label}</button>
               ))}
             </div>
           </div>
@@ -342,7 +459,9 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
   const [summing,setSumming]   = useState(false);
   const [suggesting,setSuggesting] = useState(false);
   const [suggested,setSuggested]   = useState(null);
-  const [email,setEmail]       = useState("");
+  const [pdfUrl,setPdfUrl]         = useState(null);
+  const [pdfName,setPdfName]       = useState("");
+  const [email,setEmail]       = useState(()=>localStorage.getItem("pt_email_draft_"+prof.id)||"");
   const [genning,setGenning]   = useState(false);
   const [copied,setCopied]     = useState(false);
   const [notes,setNotes]       = useState(prof.notes||"");
@@ -352,7 +471,7 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
 
   const dark = isDark(prof);
   const ds   = daysSince(prof.emailSentDate);
-  const inp  = {background:"#F1F5F9",border:"1px solid #DBEAFE",borderRadius:8,padding:"10px 12px",color:"#111827",fontSize:13,outline:"none",boxSizing:"border-box"};
+  const inp  = {background:"#F4F6F9",border:"1px solid #DBEAFE",borderRadius:8,padding:"10px 12px",color:"#111827",fontSize:13,outline:"none",boxSizing:"border-box"};
 
   const doFetch = async () => {
     if(!doi.trim()) return;
@@ -410,11 +529,11 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
   };
 
   return (
-    <div style={{background:"#F1F5F9",minHeight:"100vh",color:"#111827",fontFamily:"'SF Pro Display',-apple-system,system-ui,sans-serif"}}>
+    <div style={{background:"#F4F6F9",minHeight:"100vh",color:"#111827",fontFamily:"'SF Pro Display',-apple-system,system-ui,sans-serif"}}>
       <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
 
       {/* Header */}
-      <div style={{background:dark?"#FFF5F5":"#FFFFFF",padding:"16px 20px",borderBottom:`1px solid ${dark?"#FECACA":"#E2E8F0"}`}}>
+      <div style={{background:dark?"#FFF5F5":"#FFFFFF",padding:"16px 20px",borderBottom:`1px solid ${dark?"#FECACA":"#E4E8EF"}`}}>
         <button onClick={onBack} style={{background:"none",border:"none",color:"#38BDF8",cursor:"pointer",display:"flex",alignItems:"center",gap:5,marginBottom:14,fontSize:13,fontWeight:600}}>
           <ArrowLeft size={15}/> Back
         </button>
@@ -432,7 +551,7 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
         <div style={{marginTop:14,display:"flex",gap:5,flexWrap:"wrap"}}>
           {Object.entries(STATUS).map(([k,v])=>(
             <button key={k} onClick={()=>{ logActivity(prof.name, v.label); onUpdate({status:k,lastActivity:new Date().toISOString()}); }}
-              style={{padding:"4px 10px",borderRadius:20,border:`1px solid ${prof.status===k?v.dot+"99":"#DBEAFE"}`,background:prof.status===k?v.dot+"22":"transparent",color:prof.status===k?v.color:"#9CA3AF",cursor:"pointer",fontSize:10,fontWeight:prof.status===k?700:500,transition:"all 0.15s",letterSpacing:"0.2px"}}>
+              style={{padding:"4px 10px",borderRadius:20,border:`1px solid ${prof.status===k?v.dot+"99":"#E0EAFF"}`,background:prof.status===k?v.dot+"22":"transparent",color:prof.status===k?v.color:"#9CA3AF",cursor:"pointer",fontSize:10,fontWeight:prof.status===k?700:500,transition:"all 0.15s",letterSpacing:"0.2px"}}>
               {v.label}
             </button>
           ))}
@@ -458,7 +577,7 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
       </div>
 
       {/* Tabs */}
-      <div style={{display:"flex",borderBottom:"1px solid #E2E8F0",background:"#F1F5F9",position:"sticky",top:0,zIndex:10}}>
+      <div style={{display:"flex",borderBottom:"1px solid #E2E8F0",background:"#F4F6F9",position:"sticky",top:0,zIndex:10}}>
         {[["overview","Overview"],["papers","Papers 📄"],["email","Email Gen 🤖"]].map(([t,lbl])=>(
           <button key={t} onClick={()=>setTab(t)} style={{flex:1,padding:13,border:"none",background:"none",color:tab===t?"#38BDF8":"#9CA3AF",fontWeight:tab===t?700:500,fontSize:13,cursor:"pointer",borderBottom:tab===t?"2px solid #0284C7":"2px solid transparent",transition:"all 0.2s",letterSpacing:"-0.2px"}}>
             {lbl}
@@ -532,7 +651,7 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
 
           {prof.emailSentDate&&<div style={{background:"#FFFFFF",borderRadius:12,padding:14,marginBottom:14,border:"1px solid #DBEAFE",display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
             {[["Email Sent",prof.emailSentDate],["Follow-up",prof.followUpDate||"Not set"]].map(([k,v])=>(
-              <div key={k} style={{background:"#F1F5F9",borderRadius:8,padding:10}}>
+              <div key={k} style={{background:"#F4F6F9",borderRadius:8,padding:10}}>
                 <div style={{fontSize:10,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:4}}>{k}</div>
                 <div style={{fontSize:13,color:"#1F2937",fontFamily:"'SF Mono',monospace"}}>{v}</div>
               </div>
@@ -552,7 +671,7 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
           {/* Suggest Paper */}
           <div style={{background:"rgba(192,132,252,0.08)",border:"1px solid rgba(192,132,252,0.25)",borderRadius:12,padding:14,marginBottom:14}}>
             <div style={{fontSize:11,color:"#C084FC",fontWeight:800,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.5px"}}>✨ AI Paper Suggestion</div>
-            <div style={{fontSize:12,color:"#4B5563",marginBottom:10,lineHeight:1.5}}>Gemini searches this professor's publications and picks the most relevant paper for your cold email.</div>
+            <div style={{fontSize:12,color:"#4B5563",marginBottom:10,lineHeight:1.5}}>Semantic Scholar searches this professor's publications and picks the most relevant paper for your cold email.</div>
             {suggested&&<div style={{background:"rgba(14,116,144,0.07)",border:"1px solid rgba(56,189,248,0.2)",borderRadius:9,padding:12,marginBottom:10}}>
               <div style={{fontSize:13,fontWeight:700,color:"#111827",marginBottom:4}}>{suggested.title} ({suggested.year})</div>
               <div style={{fontSize:11,color:"#6B7280",marginBottom:6}}>by {suggested.authors?.map?.(a=>a.name).join(", ")||"Unknown"}</div>
@@ -593,7 +712,7 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
           </div>}
 
           {prof.papers?.map(paper=>(
-            <div key={paper.id} style={{background:"#FFFFFF",borderRadius:12,padding:16,marginBottom:12,border:`1px solid ${selPaper?.id===paper.id?"#38BDF866":"#DBEAFE"}`}}>
+            <div key={paper.id} style={{background:"#FFFFFF",borderRadius:12,padding:16,marginBottom:12,border:`1px solid ${selPaper?.id===paper.id?"#38BDF866":"#E0EAFF"}`}}>
               <div style={{fontSize:14,fontWeight:700,lineHeight:1.4,marginBottom:6,color:"#111827"}}>{paper.title}</div>
               <div style={{fontSize:11,color:"#9CA3AF",marginBottom:10,fontFamily:"'SF Mono',monospace"}}>{paper.authors} · {paper.year} · {paper.source}</div>
               {paper.abstract&&<div style={{fontSize:12,color:"#6B7280",lineHeight:1.6,marginBottom:10,display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{paper.abstract}</div>}
@@ -633,7 +752,7 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
               <div style={{fontSize:11,color:"#6B7280",marginBottom:8,fontWeight:600}}>Select paper for email:</div>
               {prof.papers.map(p=>(
                 <button key={p.id} onClick={()=>{setSelPaper(p);setSummary(p.summary||"");}}
-                  style={{display:"block",width:"100%",textAlign:"left",background:selPaper?.id===p.id?"rgba(14,116,144,0.07)":"#FFFFFF",border:`1px solid ${selPaper?.id===p.id?"#38BDF866":"#DBEAFE"}`,borderRadius:9,padding:11,color:"#111827",cursor:"pointer",marginBottom:6,fontSize:13}}>
+                  style={{display:"block",width:"100%",textAlign:"left",background:selPaper?.id===p.id?"rgba(14,116,144,0.07)":"#FFFFFF",border:`1px solid ${selPaper?.id===p.id?"#38BDF866":"#E0EAFF"}`,borderRadius:9,padding:11,color:"#111827",cursor:"pointer",marginBottom:6,fontSize:13}}>
                   {p.title}
                 </button>
               ))}
@@ -644,7 +763,24 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
             </div>
           )}
 
-          <button onClick={doGenEmail} style={{width:"100%",background:"linear-gradient(135deg,#0369A1,#7C3AED)",border:"none",borderRadius:12,padding:15,color:"white",fontSize:15,fontWeight:800,cursor:"pointer",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"center",gap:9,letterSpacing:"-0.3px"}}>
+          {/* Template selector */}
+          <div style={{marginBottom:12}}>
+            <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:6,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.5px"}}>Quick Template (Category-based)</label>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+              {[["semiconductor","Ion Implant"],["ml","ML/Materials"],["materials","Radiation"],["default","General"]].map(([key,lbl])=>(
+                <button key={key} onClick={()=>{
+                  const t=EMAIL_TEMPLATES[key];
+                  const filled=t.body.replace("[Prof Name]",prof.name.split(" ").pop()).replace("[Lastname]",prof.name.split(" ").pop());
+                  setEmail(filled);
+                  localStorage.setItem("pt_email_draft_"+prof.id, filled);
+                }} style={{padding:"5px 12px",borderRadius:20,border:"1px solid #E4E8EF",background:"#F4F6F9",color:"#374151",cursor:"pointer",fontSize:11,fontWeight:600}}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button onClick={doGenEmail} style={{width:"100%",background:"linear-gradient(135deg,#0369A1,#7C3AED)",border:"none",borderRadius:12,padding:14,color:"white",fontSize:14,fontWeight:800,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:9,letterSpacing:"-0.3px"}}>
             <Brain size={18}/>
             Copy Prompt → Open Claude.ai
           </button>
@@ -652,13 +788,14 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
           {email&&<>
             <div style={{background:"#FFFFFF",borderRadius:12,padding:16,marginBottom:12,border:"1px solid #DBEAFE"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                <div style={{fontSize:12,fontWeight:700,color:"#1F2937",textTransform:"uppercase",letterSpacing:"0.5px"}}>Email Draft (paste from Claude.ai)</div>
+                <div style={{fontSize:12,fontWeight:700,color:"#1F2937",textTransform:"uppercase",letterSpacing:"0.5px"}}>Email Draft</div>
+                <div style={{fontSize:10,color:"#9CA3AF"}}>auto-saved</div>
                 <button onClick={()=>{navigator.clipboard.writeText(email);setCopied(true);setTimeout(()=>setCopied(false),2000);}}
                   style={{background:copied?"rgba(22,163,74,0.15)":"rgba(2,132,199,0.1)",border:`1px solid ${copied?"rgba(74,222,128,0.4)":"rgba(56,189,248,0.35)"}`,borderRadius:8,padding:"6px 12px",color:copied?"#4ADE80":"#38BDF8",cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:5,transition:"all 0.2s"}}>
                   <Copy size={12}/>{copied?"Copied!":"Copy All"}
                 </button>
               </div>
-              <textarea value={email} onChange={e=>setEmail(e.target.value)}
+              <textarea value={email} onChange={e=>{setEmail(e.target.value);localStorage.setItem("pt_email_draft_"+prof.id,e.target.value);}}
                 style={{...inp,width:"100%",minHeight:340,resize:"vertical",lineHeight:1.8,fontFamily:"Georgia,serif",fontSize:13}}/>
             </div>
             <div style={{fontSize:12,color:"#9CA3AF",marginBottom:14,lineHeight:1.6,background:"rgba(0,0,0,0.02)",borderRadius:8,padding:"10px 12px",border:"1px solid #0F1C2E"}}>
@@ -676,6 +813,9 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
 
 /* ─── MAIN APP ─── */
 export default function ProfTracker() {
+  const [authed, setAuthed] = useState(()=>sessionStorage.getItem("pt_auth")==="1");
+  if(!authed) return <AuthGate onAuth={()=>setAuthed(true)}/>;
+
   const [profs, setProfs] = useState(()=>{
     try { const s=localStorage.getItem("pt_v2"); return s?JSON.parse(s):INIT_PROFS; }
     catch { return INIT_PROFS; }
@@ -753,10 +893,10 @@ export default function ProfTracker() {
     const Icon=cat?.icon||Cpu;
 
     return (
-      <div style={{background:"#F1F5F9",minHeight:"100vh",color:"#111827",fontFamily:"'SF Pro Display',-apple-system,system-ui,sans-serif"}}>
+      <div style={{background:"#F4F6F9",minHeight:"100vh",color:"#111827",fontFamily:"'SF Pro Display',-apple-system,system-ui,sans-serif"}}>
         <div style={{background:"#FFFFFF",padding:"14px 20px",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #E2E8F0",position:"sticky",top:0,zIndex:10}}>
           <button onClick={()=>setView("home")} style={{background:"none",border:"none",color:"#38BDF8",cursor:"pointer",display:"flex",alignItems:"center",gap:4,fontSize:13,fontWeight:600}}><ArrowLeft size={15}/> Back</button>
-          <div style={{width:1,height:18,background:"#DBEAFE"}}/>
+          <div style={{width:1,height:18,background:"#E0EAFF"}}/>
           <Icon size={16} color={cat?.color}/>
           <span style={{fontSize:16,fontWeight:800,letterSpacing:"-0.3px"}}>{cat?.label}</span>
           <span style={{marginLeft:"auto",background:cat?.bg,color:cat?.color,padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:700,border:`1px solid ${cat?.color}33`}}>{list.length} of {getCatProfs(catId).length}</span>
@@ -796,8 +936,9 @@ export default function ProfTracker() {
   const nav = id => {setCatId(id);setCFilter("All");setTFilter("All");setSFilter("All");setSearch("");setView("category");};
 
   return (
-    <div style={{background:"#F1F5F9",minHeight:"100vh",color:"#111827",fontFamily:"'SF Pro Display',-apple-system,system-ui,sans-serif"}}>
-      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
+    <div style={{background:"#F4F6F9",minHeight:"100vh",color:"#111827",fontFamily:"'SF Pro Display',-apple-system,system-ui,sans-serif"}}>
+      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}} body{background:#F4F6F9}`}</style>
+      <div style={{maxWidth:1020,margin:"0 auto",background:"#F4F6F9",minHeight:"100vh",boxShadow:"0 0 0 1px #E4E8EF"}}>
 
       {/* Top bar */}
       <div style={{background:"#FFFFFF",padding:"14px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #E2E8F0",position:"sticky",top:0,zIndex:10}}>
@@ -896,8 +1037,8 @@ export default function ProfTracker() {
       )}
 
       {/* Recent Activity */}
-      {activityLog.length>0&&(
-        <div style={{padding:"0 20px 88px"}}>
+      <div style={{padding:"0 20px 88px"}}>
+          {activityLog.length===0&&<div style={{textAlign:"center",color:"#9CA3AF",fontSize:13,padding:"20px 0"}}>No activity yet — add a professor or update a status to see activity here.</div>}
           <div style={{fontSize:10,color:"#9CA3AF",fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",marginBottom:10}}>🕐 Recent Activity</div>
           {activityLog.slice(0,6).map(a=>(
             <div key={a.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #E2E8F0"}}>
@@ -922,14 +1063,13 @@ export default function ProfTracker() {
             </div>
           ))}
         </div>
-      )}
 
       {/* FAB */}
       <button onClick={()=>setAddModal(true)} style={{position:"fixed",bottom:24,right:24,background:"linear-gradient(135deg,#0369A1,#7C3AED)",border:"none",borderRadius:"50%",width:54,height:54,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxShadow:"0 4px 24px rgba(124,58,237,0.4)"}}>
         <Plus color="white" size={22}/>
       </button>
       {addModal&&<AddModal onAdd={p=>{add(p);setAddModal(false);}} onClose={()=>setAddModal(false)}/>}
-      
+      </div>{/* /max-width */}
     </div>
   );
 }
