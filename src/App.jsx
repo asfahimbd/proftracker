@@ -23,7 +23,7 @@ const THEMES = {
     label:"Dark"
   },
   dim: {
-    bg:"#1C2128", card:"#22272E", cardDark:"#1C2128",
+    bg:"#00000", card:"#22272E", cardDark:"#1C2128",
     border:"#373E47", text:"#ADBAC7", muted:"#545D68",
     mutedText:"#768390", hover:"rgba(177,186,196,0.08)",
     input:"#1C2128", dangerBg:"#2D1B1B", dangerBorder:"#5C2626",
@@ -119,6 +119,41 @@ const today     = () => new Date().toISOString().split("T")[0];
 const fuDate    = days => new Date(Date.now()+days*86400000).toISOString().split("T")[0];
 const timeAgo   = t => { const m=Math.floor((Date.now()-new Date(t))/60000); if(m<1)return"just now"; if(m<60)return m+"m ago"; const h=Math.floor(m/60); if(h<24)return h+"h ago"; return Math.floor(h/24)+"d ago"; };
 const MAX_FILE_SIZE = 10*1024*1024; // 10 MB
+const FAHIM_EMAIL = "asfahimbd@gmail.com";
+
+// Load EmailJS SDK on demand
+async function loadEmailJS() {
+  if(window.emailjs) return;
+  await new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
+    s.onload=res; s.onerror=rej;
+    document.head.appendChild(s);
+  });
+}
+
+// Send follow-up reminder to Fahim's own email via EmailJS
+async function sendFollowUpEmail(prof, ejsKeys) {
+  if(!ejsKeys?.serviceId||!ejsKeys?.templateId||!ejsKeys?.publicKey) return false;
+  try {
+    await loadEmailJS();
+    window.emailjs.init(ejsKeys.publicKey);
+    await window.emailjs.send(ejsKeys.serviceId, ejsKeys.templateId, {
+      to_email:  FAHIM_EMAIL,
+      prof_name: prof.name,
+      prof_uni:  prof.university,
+      days_since: String(daysSince(prof.emailSentDate)||0),
+      sent_date: prof.emailSentDate||"",
+      follow_up_date: prof.followUpDate||"",
+    });
+    return true;
+  } catch(e) { console.error("EmailJS error:",e); return false; }
+}
+
+// Get EmailJS keys from localStorage
+const getEJSKeys = () => {
+  try { return JSON.parse(localStorage.getItem("pt_ejs")||"{}"); } catch { return {}; }
+};
 
 /* ─── API ─── */
 const getKey = () => localStorage.getItem("pt_gemini_key")||"";
@@ -185,11 +220,82 @@ RULES:
 9. Max 250 words`);
 }
 
-/* ─── EMAIL TEMPLATES ─── */
+/* ─── EMAIL TEMPLATES (Personalized for Abdullah Shadek Fahim) ─── */
 const EMAIL_TEMPLATES = {
-  semiconductor:{label:"Ion Implantation",body:`Dear Prof. [Lastname],\n\n[PAPER-SPECIFIC OBSERVATION — cite a specific finding from their paper]\n\nI am a B.Sc. graduate in Electrical and Electronic Engineering from Jashore University of Science and Technology (JUST), Bangladesh (CGPA 3.80/4.00). My thesis developed a Dual-Stage Hybrid Random Forest framework for forward and inverse modeling of ion implantation in Si, 4H-SiC, and GaAs, achieving a 415× speedup over SRIM/Monte Carlo simulation while maintaining high predictive accuracy through a Gatekeeper constraint mechanism.\n\nI have a first-author journal paper under review at Computational Materials Science on ML-based multi-output ion range and damage prediction, a second paper under review at Fusion Engineering and Design (MD simulation of H implantation in tungsten), and an accepted paper at IEEE ICOPS 2026.\n\nYour group's work on [SPECIFIC RESEARCH AREA] aligns closely with my background in physics-informed surrogate modeling for ion-solid interactions. I believe I could contribute meaningfully to [SPECIFIC PROJECT OR DIRECTION IN THEIR LAB].\n\nI am inquiring about PhD openings for Fall 2027. Would you be open to a brief conversation?\n\nBest regards,\nAbdullah Shadek Fahim\nasfahimbd@gmail.com`},
-  ml:{label:"ML / Materials",body:`Dear Prof. [Lastname],\n\n[PAPER-SPECIFIC OBSERVATION — reference a specific technique or result]\n\nI am a B.Sc. graduate in EEE from JUST, Bangladesh (CGPA 3.80/4.00). My thesis designed a Dual-Stage Hybrid Random Forest surrogate model for ion implantation prediction — achieving 415× speedup over physics-based Monte Carlo simulation while preserving physical accuracy.\n\nPublications: first-author journal under review at Computational Materials Science, second journal under review at Fusion Engineering and Design (2nd author), accepted at IEEE ICOPS 2026.\n\nYour research on [SPECIFIC ML METHOD/APPLICATION] directly intersects with my interest in physics-informed machine learning for materials simulation. I am particularly drawn to [SPECIFIC ASPECT of their work].\n\nI am exploring PhD positions for Fall 2027 and would be grateful to know about any available openings.\n\nBest regards,\nAbdullah Shadek Fahim\nasfahimbd@gmail.com`},
-  materials:{label:"Radiation / Materials",body:`Dear Prof. [Lastname],\n\n[PAPER-SPECIFIC OBSERVATION — cite a specific result about defect formation, damage cascades, or processing]\n\nI am a recent B.Sc. graduate in EEE from JUST, Bangladesh (CGPA 3.80/4.00). My thesis built ML surrogate models replacing computationally expensive SRIM/Monte Carlo ion implantation simulations — achieving 415× speedup for ion ranges and damage profiles in Si, SiC, and GaAs.\n\nPublications: first-author journal under review at Computational Materials Science, second journal under review at Fusion Engineering and Design (MD simulation of H in tungsten), accepted at IEEE ICOPS 2026.\n\nYour work on [SPECIFIC TOPIC] resonates strongly with my research direction. I am eager to extend my surrogate modeling approach to [SPECIFIC APPLICATION in their lab].\n\nI am seeking PhD positions for Fall 2027.\n\nBest regards,\nAbdullah Shadek Fahim\nasfahimbd@gmail.com`},
+  semiconductor:{
+    label:"Semiconductor / Ion Implantation",
+    body:`Dear Prof. [Lastname],
+
+[PAPER HOOK — 1-2 sentences about a specific finding from their paper. Example: "Your recent work on radiation-induced defect formation in 4H-SiC caught my attention, particularly the cascade overlap behavior at high fluences and its implications for device reliability."]
+
+I am Abdullah Shadek Fahim, a recent B.Sc. graduate in Electrical and Electronic Engineering from Jashore University of Science and Technology (JUST), Bangladesh (CGPA: 3.80/4.00). My undergraduate thesis developed a Dual-Stage Hybrid Random Forest surrogate framework for forward and inverse modeling of ion implantation across Si, 4H-SiC, and GaAs substrates — achieving a 415× computational speedup over SRIM/Monte Carlo simulation while preserving physical accuracy through a Gatekeeper constraint mechanism.
+
+My publications include a first-author manuscript currently under review at Computational Materials Science on ML-based multi-output ion range and damage profile prediction, a second manuscript under review at Fusion Engineering and Design on MD simulation of hydrogen implantation in BCC tungsten (second author), and an accepted paper at IEEE ICOPS 2026 on ML surrogate modeling for GaAs ion implantation.
+
+Your group's work on [SPECIFIC RESEARCH DIRECTION — e.g., radiation effects in wide-bandgap semiconductors / ion beam material modification] closely aligns with my background in physics-informed machine learning for ion-solid interactions. I am particularly interested in [SPECIFIC PROJECT or direction in their lab].
+
+I am exploring PhD opportunities for Fall 2027 and would be grateful to learn whether your group anticipates any openings. Would you be open to a brief conversation?
+
+Best regards,
+Abdullah Shadek Fahim
+B.Sc. EEE, JUST Bangladesh | CGPA: 3.80/4.00
+asfahimbd@gmail.com`
+  },
+  ml:{
+    label:"Machine Learning / Computational Materials",
+    body:`Dear Prof. [Lastname],
+
+[PAPER HOOK — 1-2 sentences referencing a specific technique, architecture, or result from their paper. Be concrete.]
+
+I am Abdullah Shadek Fahim, a recent B.Sc. graduate in Electrical and Electronic Engineering from JUST, Bangladesh (CGPA: 3.80/4.00). My thesis designed a Dual-Stage Hybrid Random Forest surrogate model for ion implantation prediction in Si, 4H-SiC, and GaAs — achieving a 415× speedup over physics-based SRIM/Monte Carlo simulation. The framework uses a Gatekeeper constraint to maintain physical plausibility of ML predictions, and an inverse-design module for target-driven implantation parameter optimization.
+
+I have a first-author manuscript under review at Computational Materials Science (multi-output ion range and damage profile prediction via ML), a second manuscript under review at Fusion Engineering and Design (MD study of hydrogen implantation in BCC tungsten, second author), and an accepted paper at IEEE ICOPS 2026.
+
+Your research on [SPECIFIC ML METHOD or APPLICATION — e.g., neural network potentials / active learning for materials / Gaussian process surrogates] directly intersects with my work in physics-informed surrogate modeling for computational materials science. I am particularly drawn to [SPECIFIC ASPECT or paper from their group].
+
+I am seeking PhD positions for Fall 2027. I would greatly appreciate knowing whether your group has openings and whether my background might be a good fit.
+
+Best regards,
+Abdullah Shadek Fahim
+B.Sc. EEE, JUST Bangladesh | CGPA: 3.80/4.00
+asfahimbd@gmail.com`
+  },
+  materials:{
+    label:"Radiation Effects / Materials Processing",
+    body:`Dear Prof. [Lastname],
+
+[PAPER HOOK — cite a specific result about defect formation, radiation damage, or processing outcomes from their paper.]
+
+I am Abdullah Shadek Fahim, a recent B.Sc. graduate in EEE from Jashore University of Science and Technology (JUST), Bangladesh (CGPA: 3.80/4.00). My undergraduate thesis built ML surrogate models to replace computationally expensive SRIM/Monte Carlo ion implantation simulations — achieving a 415× speedup for predicting ion range distributions and damage profiles in Si, 4H-SiC, and GaAs. The framework also includes an inverse-design module for process parameter optimization given target implantation profiles.
+
+My publications: first-author manuscript under review at Computational Materials Science (ML-based ion implantation modeling), second manuscript under review at Fusion Engineering and Design (MD simulation of hydrogen implantation and diffusion in BCC tungsten, second author), and an accepted paper at IEEE ICOPS 2026.
+
+Your work on [SPECIFIC TOPIC — e.g., cascade dynamics / defect thermodynamics / radiation damage in ceramics] resonates directly with my research. The surrogate modeling approach I developed could potentially be extended to [SPECIFIC APPLICATION relevant to their lab], and I would be very interested in exploring this further.
+
+I am applying for PhD positions for Fall 2027. Would you have a moment to discuss whether there might be a fit?
+
+Best regards,
+Abdullah Shadek Fahim
+B.Sc. EEE, JUST Bangladesh | CGPA: 3.80/4.00
+asfahimbd@gmail.com`
+  },
+  followup:{
+    label:"Follow-up Email",
+    body:`Dear Prof. [Lastname],
+
+I hope this message finds you well. I am writing to follow up on my email from [DATE SENT], in which I inquired about PhD opportunities in your group for Fall 2027.
+
+I remain very interested in joining your research group, particularly in the area of [SPECIFIC RESEARCH TOPIC]. My work on ML surrogate models for ion implantation (415× speedup over SRIM/Monte Carlo, under review at Computational Materials Science) continues to progress, and I believe there is strong potential for synergy with your ongoing projects.
+
+I understand you are likely very busy, and I appreciate any time you can spare. If there are no current openings, I would also welcome any guidance on suitable opportunities within your department or collaborating groups.
+
+Thank you again for your consideration.
+
+Best regards,
+Abdullah Shadek Fahim
+B.Sc. EEE, JUST Bangladesh | CGPA: 3.80/4.00
+asfahimbd@gmail.com`
+  },
 };
 
 /* ─── AUTH GATE ─── */
@@ -354,28 +460,69 @@ function AddModal({onAdd,onClose,defaultCat,profs,t}){
 }
 
 /* ─── SETTINGS MODAL ─── */
-function SettingsModal({onClose,t}){
-  const [key,setKey]=useState(localStorage.getItem("pt_gemini_key")||"");
-  const [saved,setSaved]=useState(false);
-  const save=()=>{localStorage.setItem("pt_gemini_key",key.trim());setSaved(true);setTimeout(()=>setSaved(false),2000);};
+function SettingsModal({onClose,t,onDeleteAll}){
+  const [key,setKey]   = useState(localStorage.getItem("pt_gemini_key")||"");
+  const [saved,setSaved] = useState(false);
+  const [ejs,setEjs]   = useState(()=>getEJSKeys());
+  const [ejsSaved,setEjsSaved] = useState(false);
+  const [delConfirm,setDelConfirm] = useState(false);
+
+  const saveGemini = () => { localStorage.setItem("pt_gemini_key",key.trim()); setSaved(true); setTimeout(()=>setSaved(false),2000); };
+  const saveEJS    = () => { localStorage.setItem("pt_ejs",JSON.stringify(ejs)); setEjsSaved(true); setTimeout(()=>setEjsSaved(false),2000); };
+  const setE = (k,v) => setEjs(p=>({...p,[k]:v}));
+
+  const inp = {width:"100%",background:t.input,border:`1px solid ${t.border}`,borderRadius:8,padding:"11px 13px",color:t.text,fontSize:13,outline:"none",boxSizing:"border-box",marginBottom:10};
+
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{background:t.card,borderRadius:16,padding:24,width:"100%",maxWidth:400,border:`1px solid ${t.border}`}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-          <span style={{fontSize:16,fontWeight:800,color:t.text}}>⚙️ Settings</span>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20,overflowY:"auto"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:t.card,borderRadius:16,padding:24,width:"100%",maxWidth:440,border:`1px solid ${t.border}`,margin:"auto"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
+          <span style={{fontSize:17,fontWeight:800,color:t.text}}>⚙️ Settings</span>
           <button onClick={onClose} style={{background:"none",border:"none",color:t.muted,cursor:"pointer"}}><X size={18}/></button>
         </div>
-        <div style={{fontSize:12,color:t.muted,background:t.cardDark,borderRadius:8,padding:"10px 12px",marginBottom:14,lineHeight:1.6,border:`1px solid ${t.border}`}}>
-          <strong style={{color:t.text}}>Gemini API Key (optional)</strong><br/>
-          Enables AI-powered professor fetch & email generation.<br/>
-          Get free key at <a href="https://aistudio.google.com" target="_blank" style={{color:"#38BDF8"}}>aistudio.google.com</a> — note: may not work in all regions.
+
+        {/* Gemini */}
+        <div style={{fontSize:12,color:t.muted,marginBottom:8,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.5px"}}>Gemini AI Key (optional)</div>
+        <div style={{fontSize:12,color:t.muted,background:t.cardDark,borderRadius:8,padding:"9px 12px",marginBottom:10,lineHeight:1.6,border:`1px solid ${t.border}`}}>
+          For AI email generation. Get free key at <a href="https://aistudio.google.com" target="_blank" style={{color:"#38BDF8"}}>aistudio.google.com</a>
         </div>
-        <label style={{fontSize:11,color:t.muted,display:"block",marginBottom:6,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.5px"}}>Gemini API Key</label>
-        <input type="password" value={key} onChange={e=>setKey(e.target.value)} placeholder="AIzaSy… (optional)" style={{width:"100%",background:t.input,border:`1px solid ${t.border}`,borderRadius:8,padding:"12px 14px",color:t.text,fontSize:14,outline:"none",boxSizing:"border-box",marginBottom:12}}/>
-        <button onClick={save} style={{width:"100%",background:saved?"rgba(74,222,128,0.15)":"linear-gradient(135deg,#0369A1,#7C3AED)",border:saved?"1px solid #4ADE80":"none",borderRadius:10,padding:13,color:saved?"#4ADE80":"white",fontSize:14,fontWeight:800,cursor:"pointer"}}>
-          {saved?"✓ Saved!":"Save Key"}
+        <input type="password" value={key} onChange={e=>setKey(e.target.value)} placeholder="AIzaSy…" style={inp}/>
+        <button onClick={saveGemini} style={{width:"100%",background:saved?"rgba(74,222,128,0.15)":"linear-gradient(135deg,#0369A1,#7C3AED)",border:saved?"1px solid #4ADE80":"none",borderRadius:9,padding:12,color:saved?"#4ADE80":"white",fontSize:14,fontWeight:800,cursor:"pointer",marginBottom:20}}>
+          {saved?"✓ Saved!":"Save Gemini Key"}
         </button>
-        <button onClick={()=>supabase.auth.signOut()} style={{width:"100%",marginTop:10,background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:10,padding:11,color:"#F87171",fontSize:14,fontWeight:700,cursor:"pointer"}}>Sign Out</button>
+
+        {/* EmailJS */}
+        <div style={{fontSize:12,color:t.muted,marginBottom:8,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.5px"}}>📧 Email Notifications (EmailJS)</div>
+        <div style={{fontSize:12,color:t.muted,background:t.cardDark,borderRadius:8,padding:"9px 12px",marginBottom:10,lineHeight:1.7,border:`1px solid ${t.border}`}}>
+          Follow-up reminders → email to <strong style={{color:t.text}}>asfahimbd@gmail.com</strong><br/>
+          Setup: <a href="https://emailjs.com" target="_blank" style={{color:"#38BDF8"}}>emailjs.com</a> → Create Service (Gmail) → Create Template → Copy keys below.<br/>
+          Template variables: <code style={{color:"#C084FC"}}>{"{{prof_name}} {{prof_uni}} {{days_since}} {{follow_up_date}}"}</code>
+        </div>
+        <input value={ejs.serviceId||""} onChange={e=>setE("serviceId",e.target.value)} placeholder="Service ID (e.g. service_xxx)" style={inp}/>
+        <input value={ejs.templateId||""} onChange={e=>setE("templateId",e.target.value)} placeholder="Template ID (e.g. template_xxx)" style={inp}/>
+        <input value={ejs.publicKey||""} onChange={e=>setE("publicKey",e.target.value)} placeholder="Public Key" style={inp}/>
+        <button onClick={saveEJS} style={{width:"100%",background:ejsSaved?"rgba(74,222,128,0.15)":"rgba(56,189,248,0.1)",border:`1px solid ${ejsSaved?"#4ADE80":"rgba(56,189,248,0.4)"}`,borderRadius:9,padding:12,color:ejsSaved?"#4ADE80":"#38BDF8",fontSize:14,fontWeight:800,cursor:"pointer",marginBottom:20}}>
+          {ejsSaved?"✓ EmailJS Saved!":"Save EmailJS Keys"}
+        </button>
+
+        {/* Danger zone */}
+        <div style={{borderTop:`1px solid ${t.border}`,paddingTop:18}}>
+          <div style={{fontSize:12,color:"#F87171",marginBottom:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.5px"}}>⚠ Danger Zone</div>
+          {!delConfirm?(
+            <button onClick={()=>setDelConfirm(true)} style={{width:"100%",background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:9,padding:12,color:"#F87171",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10}}>
+              🗑 Delete All Data (Reset Site)
+            </button>
+          ):(
+            <div style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.4)",borderRadius:10,padding:14,marginBottom:10}}>
+              <div style={{fontSize:13,color:"#FCA5A5",marginBottom:12,fontWeight:600,lineHeight:1.5}}>⚠ This will permanently delete ALL professors, papers, emails, and activity logs from Supabase. This cannot be undone.</div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>setDelConfirm(false)} style={{flex:1,background:t.cardDark,border:`1px solid ${t.border}`,borderRadius:8,padding:11,color:t.muted,fontSize:14,fontWeight:700,cursor:"pointer"}}>Cancel</button>
+                <button onClick={()=>{onDeleteAll();onClose();}} style={{flex:1,background:"#DC2626",border:"none",borderRadius:8,padding:11,color:"white",fontSize:14,fontWeight:800,cursor:"pointer"}}>Yes, Delete All</button>
+              </div>
+            </div>
+          )}
+          <button onClick={()=>supabase.auth.signOut()} style={{width:"100%",background:"transparent",border:`1px solid ${t.border}`,borderRadius:9,padding:11,color:t.muted,fontSize:14,fontWeight:600,cursor:"pointer"}}>Sign Out</button>
+        </div>
       </div>
     </div>
   );
@@ -637,9 +784,12 @@ function DetailView({prof,onBack,onUpdate,onDelete,t,session,logActivity}){
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
               {Object.entries(EMAIL_TEMPLATES).map(([key,tmpl])=>(
                 <button key={key} onClick={()=>{
-                  const filled=tmpl.body.replace(/\[Lastname\]/g,prof.name.split(" ").pop()).replace(/\[Prof Name\]/g,prof.name.split(" ").pop());
+                  const filled=tmpl.body
+                    .replace(/\[Lastname\]/g,prof.name.split(" ").pop())
+                    .replace(/\[Prof Name\]/g,prof.name.split(" ").pop())
+                    .replace(/\[DATE SENT\]/g,prof.emailSentDate||"[date]");
                   setEmail(filled);localStorage.setItem("pt_email_draft_"+prof.id,filled);
-                }} style={{padding:"6px 14px",borderRadius:20,border:`1px solid ${t.border}`,background:t.cardDark,color:t.mutedText,cursor:"pointer",fontSize:12,fontWeight:700}}>{tmpl.label}</button>
+                }} style={{padding:"6px 14px",borderRadius:20,border:`1px solid ${key==="followup"?"rgba(251,191,36,0.4)":t.border}`,background:key==="followup"?"rgba(251,191,36,0.08)":t.cardDark,color:key==="followup"?"#FBBF24":t.mutedText,cursor:"pointer",fontSize:12,fontWeight:700}}>{tmpl.label}</button>
               ))}
             </div>
           </div>
@@ -705,6 +855,8 @@ function ProfTracker({session}){
   const [profId,setProfId]=useState(null);
   const [addModal,setAddModal]=useState(false);
   const [showSettings,setShowSettings]=useState(false);
+  const [showNotif,setShowNotif]=useState(false);
+  const [notifSent,setNotifSent]=useState(()=>{ try{return JSON.parse(localStorage.getItem("pt_notif_sent")||"[]");}catch{return[];} });
   const [search,setSearch]=useState("");
   const [cFilter,setCFilter]=useState("All");
   const [tFilter,setTFilter]=useState("All");
@@ -735,13 +887,30 @@ function ProfTracker({session}){
     load();
   },[session]);
 
-  /* ─ Browser notifications on load ─ */
+  /* ─ Browser + email notifications ─ */
   useEffect(()=>{
     if("Notification" in window&&Notification.permission==="default")Notification.requestPermission();
     if(profs.length===0)return;
     const due=profs.filter(p=>p.followUpDate&&daysSince(p.followUpDate)>=0&&p.status==="email_sent");
-    if(due.length>0&&Notification.permission==="granted")
-      due.slice(0,3).forEach(p=>new Notification("📧 Follow-up Due — ProfTracker",{body:`Follow up with ${p.name}`}));
+    due.slice(0,3).forEach(p=>{
+      // Browser notification
+      if(Notification.permission==="granted")
+        new Notification("📧 Follow-up Due — ProfTracker",{body:`Follow up with ${p.name} (${p.university})`});
+      // Email notification (if not already sent today for this prof)
+      const todayKey=`${p.id}_${today()}`;
+      if(!notifSent.includes(todayKey)){
+        const ejsKeys=getEJSKeys();
+        if(ejsKeys.serviceId){
+          sendFollowUpEmail(p,ejsKeys).then(ok=>{
+            if(ok){
+              const updated=[...notifSent,todayKey].slice(-50);
+              setNotifSent(updated);
+              localStorage.setItem("pt_notif_sent",JSON.stringify(updated));
+            }
+          });
+        }
+      }
+    });
   },[profs]);
 
   /* ─ CRUD ─ */
@@ -766,6 +935,21 @@ function ProfTracker({session}){
   };
 
   const exportData=()=>{const b=new Blob([JSON.stringify(profs,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="proftracker_backup.json";a.click();};
+
+  const deleteAll=async()=>{
+    // Delete all prof data and activity from Supabase
+    await supabase.from('prof_data').delete().eq('user_id',session.user.id);
+    await supabase.from('activity_data').delete().eq('user_id',session.user.id);
+    // Delete all uploaded PDFs
+    const{data:files}=await supabase.storage.from('papers').list(session.user.id);
+    if(files?.length){
+      const paths=files.map(f=>`${session.user.id}/${f.name}`);
+      await supabase.storage.from('papers').remove(paths);
+    }
+    // Clear local state
+    setProfs([]);setActivityLog([]);
+    localStorage.removeItem("pt_notif_sent");
+  };
 
   const followUps=profs.filter(p=>p.followUpDate&&daysSince(p.followUpDate)>=0&&p.status==="email_sent");
   const darkCards=profs.filter(isDark);
@@ -793,8 +977,47 @@ function ProfTracker({session}){
             <button onClick={exportData} title="Export JSON" style={{background:t.hover,border:`1px solid ${t.border}`,borderRadius:9,padding:9,cursor:"pointer",display:"flex"}}><Download size={16} color={t.muted}/></button>
             <button onClick={()=>setShowSettings(true)} style={{background:t.hover,border:`1px solid ${t.border}`,borderRadius:9,padding:9,cursor:"pointer",display:"flex"}}><Settings size={16} color={t.muted}/></button>
             <div style={{position:"relative"}}>
-              <Bell size={22} color={t.muted} style={{cursor:"pointer"}}/>
-              {followUps.length>0&&<div style={{position:"absolute",top:-7,right:-7,background:"#DC2626",color:"white",borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800}}>{followUps.length}</div>}
+              <button onClick={()=>setShowNotif(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",position:"relative",display:"flex",padding:4}}>
+                <Bell size={22} color={followUps.length>0?"#F87171":t.muted}/>
+                {followUps.length>0&&<div style={{position:"absolute",top:-4,right:-4,background:"#DC2626",color:"white",borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800}}>{followUps.length}</div>}
+              </button>
+              {showNotif&&(
+                <div style={{position:"absolute",top:"calc(100% + 10px)",right:0,width:320,background:t.card,border:`1px solid ${t.border}`,borderRadius:14,boxShadow:"0 8px 32px rgba(0,0,0,0.25)",zIndex:200,overflow:"hidden"}}>
+                  <div style={{padding:"14px 16px",borderBottom:`1px solid ${t.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontSize:13,fontWeight:800,color:t.text}}>🔔 Notifications</span>
+                    <button onClick={()=>setShowNotif(false)} style={{background:"none",border:"none",color:t.muted,cursor:"pointer"}}><X size={14}/></button>
+                  </div>
+                  <div style={{maxHeight:360,overflowY:"auto"}}>
+                    {followUps.length===0&&profs.filter(isDark).length===0?(
+                      <div style={{padding:"24px 16px",textAlign:"center",color:t.muted,fontSize:13}}>No notifications 🎉</div>
+                    ):null}
+                    {followUps.map(p=>(
+                      <div key={p.id} onClick={()=>{setProfId(p.id);setView("detail");setShowNotif(false);}} style={{padding:"12px 16px",borderBottom:`1px solid ${t.border}`,cursor:"pointer",background:"rgba(220,38,38,0.05)",transition:"background 0.15s"}}
+                        onMouseEnter={e=>e.currentTarget.style.background="rgba(220,38,38,0.1)"}
+                        onMouseLeave={e=>e.currentTarget.style.background="rgba(220,38,38,0.05)"}>
+                        <div style={{fontSize:13,fontWeight:700,color:"#F87171",marginBottom:2}}>📧 Follow-up Due</div>
+                        <div style={{fontSize:13,color:t.text,fontWeight:600}}>{p.name}</div>
+                        <div style={{fontSize:11,color:t.muted,marginTop:2}}>{p.university} · emailed {daysSince(p.emailSentDate)}d ago</div>
+                      </div>
+                    ))}
+                    {profs.filter(isDark).filter(p=>!followUps.find(f=>f.id===p.id)).map(p=>(
+                      <div key={p.id} onClick={()=>{setProfId(p.id);setView("detail");setShowNotif(false);}} style={{padding:"12px 16px",borderBottom:`1px solid ${t.border}`,cursor:"pointer",transition:"background 0.15s"}}
+                        onMouseEnter={e=>e.currentTarget.style.background=t.hover}
+                        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                        <div style={{fontSize:13,fontWeight:700,color:"#FB923C",marginBottom:2}}>⚠ No Reply</div>
+                        <div style={{fontSize:13,color:t.text,fontWeight:600}}>{p.name}</div>
+                        <div style={{fontSize:11,color:t.muted,marginTop:2}}>{p.university} · {daysSince(p.emailSentDate)}d since email</div>
+                      </div>
+                    ))}
+                    {getEJSKeys().serviceId&&followUps.length>0&&<div style={{padding:"10px 16px",background:"rgba(74,222,128,0.06)",borderTop:`1px solid ${t.border}`,fontSize:11,color:"#4ADE80",fontWeight:600}}>
+                      ✓ Email reminders active — sending to {FAHIM_EMAIL}
+                    </div>}
+                    {!getEJSKeys().serviceId&&<div style={{padding:"10px 16px",background:t.cardDark,borderTop:`1px solid ${t.border}`,fontSize:11,color:t.muted}}>
+                      💡 Set up EmailJS in ⚙ Settings for email reminders to {FAHIM_EMAIL}
+                    </div>}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -937,7 +1160,7 @@ function ProfTracker({session}){
           <Plus color="white" size={24}/>
         </button>
         {addModal&&<AddModal t={t} profs={profs} defaultCat={catId} onAdd={p=>{add(p);setAddModal(false);}} onClose={()=>setAddModal(false)}/>}
-        {showSettings&&<SettingsModal t={t} onClose={()=>setShowSettings(false)}/>}
+        {showSettings&&<SettingsModal t={t} onClose={()=>setShowSettings(false)} onDeleteAll={deleteAll}/>}
       </div>
     </div>
   );
