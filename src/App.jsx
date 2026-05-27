@@ -19,7 +19,7 @@ const CATEGORIES = [
 ];
 
 const STATUS = {
-  not_contacted: { label:"Not Contacted",  color:"#64748B", dot:"#475569" },
+  not_contacted: { label:"Not Contacted",  color:"#6B7280", dot:"#9CA3AF" },
   scheduled:     { label:"Scheduled",      color:"#C084FC", dot:"#9333EA" },
   email_sent:    { label:"Email Sent",     color:"#38BDF8", dot:"#0284C7" },
   follow_up:     { label:"Follow-up Due",  color:"#FBBF24", dot:"#D97706" },
@@ -190,16 +190,16 @@ function ProfCard({ prof, onClick }) {
   const st   = STATUS[prof.status]||STATUS.not_contacted;
   const ds   = daysSince(prof.emailSentDate);
   return (
-    <div onClick={onClick} style={{background:dark?"#0D0505":"#0F1C2E",border:`1px solid ${dark?"#5C1A1A":"#1E3A5F"}`,borderRadius:14,padding:16,cursor:"pointer",opacity:dark?0.85:1,position:"relative",transition:"transform 0.15s",userSelect:"none"}}
+    <div onClick={onClick} style={{background:dark?"#FFF5F5":"#F1F5F9",border:`1px solid ${dark?"#FECACA":"#E2E8F0"}`,borderRadius:14,padding:16,cursor:"pointer",opacity:dark?0.85:1,position:"relative",transition:"transform 0.15s",userSelect:"none"}}
       onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
       onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
       <div style={{position:"absolute",top:12,right:12,fontSize:10,fontWeight:800,padding:"2px 7px",borderRadius:5,background:prof.tier===1?"rgba(239,68,68,0.15)":prof.tier===2?"rgba(251,191,36,0.12)":"rgba(74,222,128,0.1)",color:prof.tier===1?"#F87171":prof.tier===2?"#FBBF24":"#4ADE80",border:`1px solid ${prof.tier===1?"#F8717144":prof.tier===2?"#FBBF2444":"#4ADE8044"}`}}>T{prof.tier}</div>
       <div style={{paddingRight:36}}>
-        <div style={{fontSize:10,color:"#475569",marginBottom:3,fontFamily:"'SF Mono',monospace"}}>{FLAGS[prof.country]||"🌍"} {prof.country}</div>
-        <div style={{fontSize:14,fontWeight:700,lineHeight:1.3,marginBottom:2,color:"#E2E8F0"}}>{prof.name}</div>
-        <div style={{fontSize:11,color:"#64748B",marginBottom:10}}>{prof.university}</div>
+        <div style={{fontSize:10,color:"#9CA3AF",marginBottom:3,fontFamily:"'SF Mono',monospace"}}>{FLAGS[prof.country]||"🌍"} {prof.country}</div>
+        <div style={{fontSize:14,fontWeight:700,lineHeight:1.3,marginBottom:2,color:"#111827"}}>{prof.name}</div>
+        <div style={{fontSize:11,color:"#6B7280",marginBottom:10}}>{prof.university}</div>
       </div>
-      <div style={{fontSize:11,color:"#475569",marginBottom:10,lineHeight:1.5,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{prof.researchFocus}</div>
+      <div style={{fontSize:11,color:"#9CA3AF",marginBottom:10,lineHeight:1.5,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{prof.researchFocus}</div>
       <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10}}>
         {prof.categories?.slice(0,2).map(cId=>{const c=CATEGORIES.find(x=>x.id===cId);return c?<span key={cId} style={{fontSize:9,background:c.bg,color:c.color,padding:"2px 7px",borderRadius:5,border:`1px solid ${c.color}33`,fontWeight:600,letterSpacing:"0.3px"}}>{c.label}</span>:null;})}
       </div>
@@ -208,7 +208,7 @@ function ProfCard({ prof, onClick }) {
           <div style={{width:6,height:6,borderRadius:"50%",background:st.dot,flexShrink:0}}/>
           <span style={{fontSize:11,color:st.color,fontWeight:600}}>{st.label}</span>
         </div>
-        {ds!==null&&<span style={{fontSize:10,color:dark?"#F87171":"#475569",fontFamily:"'SF Mono',monospace"}}>{dark?`⚠ ${ds}d no reply`:`${ds}d ago`}</span>}
+        {ds!==null&&<span style={{fontSize:10,color:dark?"#F87171":"#9CA3AF",fontFamily:"'SF Mono',monospace"}}>{dark?`⚠ ${ds}d no reply`:`${ds}d ago`}</span>}
       </div>
     </div>
   );
@@ -226,18 +226,31 @@ function AddModal({ onAdd, onClose, defaultCat }) {
 
   const set       = (k, v) => setF(p => ({ ...p, [k]: v }));
   const toggleCat = id => setF(p => ({ ...p, categories: p.categories.includes(id) ? p.categories.filter(c => c !== id) : [...p.categories, id] }));
-  const inp = { background:"#060D1A", border:"1px solid #1E3A5F", borderRadius:8, padding:"10px 12px", color:"#E2E8F0", fontSize:13, outline:"none", boxSizing:"border-box", width:"100%" };
+  const inp = { background:"#F1F5F9", border:"1px solid #DBEAFE", borderRadius:8, padding:"10px 12px", color:"#111827", fontSize:13, outline:"none", boxSizing:"border-box", width:"100%" };
 
   const doFetch = async () => {
     if (!urlInput.trim()) return;
     setFetching(true); setFetchErr(""); setFetched(false);
     try {
-      const result = await fetchProfFromURL(urlInput.trim());
-      if (result && result.name) {
-        setF(prev => ({ ...prev, name: result.name||prev.name, university: result.university||prev.university, country: result.country||prev.country, email: result.email||prev.email, profileUrl: result.profileUrl||urlInput.trim(), researchFocus: result.researchFocus||prev.researchFocus }));
+      // Search Semantic Scholar author API (free, no key)
+      const query = encodeURIComponent(urlInput.trim());
+      const r = await fetch(`https://api.semanticscholar.org/graph/v1/author/search?query=${query}&fields=name,affiliations,homepage&limit=1`);
+      const d = await r.json();
+      const author = d.data?.[0];
+      if (author && author.name) {
+        const uni = author.affiliations?.[0] || "";
+        setF(prev => ({
+          ...prev,
+          name: author.name || prev.name,
+          university: uni || prev.university,
+          profileUrl: author.homepage || urlInput.trim(),
+        }));
         setFetched(true);
-      } else { setFetchErr("Could not extract info. Try a direct faculty page URL."); }
-    } catch(e) { setFetchErr("Fetch failed. Check the URL and try again."); }
+        setFetchErr("");
+      } else {
+        setFetchErr("Not found on Semantic Scholar. Try full name e.g. 'Kai Nordlund'. Country & research focus fill manually.");
+      }
+    } catch(e) { setFetchErr("Search failed. Fill manually."); }
     setFetching(false);
   };
 
@@ -249,65 +262,65 @@ function AddModal({ onAdd, onClose, defaultCat }) {
   const showForm = mode === "manual" || fetched;
 
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{background:"#0A1628",width:"100%",borderRadius:"20px 20px 0 0",padding:"24px 20px",maxHeight:"92vh",overflowY:"auto",boxSizing:"border-box",border:"1px solid #1E3A5F",borderBottom:"none"}}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:"#FFFFFF",width:"100%",borderRadius:"20px 20px 0 0",padding:"24px 20px",maxHeight:"92vh",overflowY:"auto",boxSizing:"border-box",border:"1px solid #DBEAFE",borderBottom:"none"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-          <span style={{fontSize:17,fontWeight:800,color:"#E2E8F0",letterSpacing:"-0.3px"}}>Add Professor</span>
-          <button onClick={onClose} style={{background:"rgba(255,255,255,0.05)",border:"1px solid #1E3A5F",borderRadius:8,padding:6,cursor:"pointer",display:"flex"}}><X size={16} color="#64748B"/></button>
+          <span style={{fontSize:17,fontWeight:800,color:"#111827",letterSpacing:"-0.3px"}}>Add Professor</span>
+          <button onClick={onClose} style={{background:"rgba(0,0,0,0.05)",border:"1px solid #DBEAFE",borderRadius:8,padding:6,cursor:"pointer",display:"flex"}}><X size={16} color="#6B7280"/></button>
         </div>
 
         {/* Mode toggle */}
-        <div style={{display:"flex",gap:8,marginBottom:20,background:"#060D1A",borderRadius:10,padding:4,border:"1px solid #1E3A5F"}}>
+        <div style={{display:"flex",gap:8,marginBottom:20,background:"#F1F5F9",borderRadius:10,padding:4,border:"1px solid #DBEAFE"}}>
           {[["auto","🔗 Auto (URL/Name)"],["manual","✏️ Manual"]].map(([m,lbl])=>(
-            <button key={m} onClick={()=>{setMode(m);setFetched(false);setFetchErr("");}} style={{flex:1,padding:"8px 4px",borderRadius:8,border:"none",background:mode===m?"linear-gradient(135deg,#0369A1,#7C3AED)":"transparent",color:mode===m?"white":"#475569",cursor:"pointer",fontSize:13,fontWeight:700,transition:"all 0.2s"}}>{lbl}</button>
+            <button key={m} onClick={()=>{setMode(m);setFetched(false);setFetchErr("");}} style={{flex:1,padding:"8px 4px",borderRadius:8,border:"none",background:mode===m?"linear-gradient(135deg,#0369A1,#7C3AED)":"transparent",color:mode===m?"white":"#9CA3AF",cursor:"pointer",fontSize:13,fontWeight:700,transition:"all 0.2s"}}>{lbl}</button>
           ))}
         </div>
 
         {/* Auto fetch input */}
         {mode==="auto" && <>
-          <label style={{fontSize:11,color:"#64748B",display:"block",marginBottom:6,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"}}>Professor URL or Name</label>
+          <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:6,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"}}>Professor URL or Name</label>
           <div style={{display:"flex",gap:8,marginBottom:6}}>
-            <input value={urlInput} onChange={e=>setUrlInput(e.target.value)} placeholder="https://faculty.uni.edu/... or 'Prof. Yanwen Zhang UTK'" style={{...inp,flex:1}} onKeyDown={e=>e.key==="Enter"&&doFetch()}/>
+            <input value={urlInput} onChange={e=>setUrlInput(e.target.value)} placeholder="Type professor name, e.g. Kai Nordlund" style={{...inp,flex:1}} onKeyDown={e=>e.key==="Enter"&&doFetch()}/>
             <button onClick={doFetch} disabled={fetching} style={{background:fetching?"rgba(124,58,237,0.3)":"linear-gradient(135deg,#0369A1,#7C3AED)",border:"none",borderRadius:8,padding:"10px 16px",color:"white",cursor:"pointer",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap"}}>
               {fetching?<RefreshCw size={14} style={{animation:"spin 1s linear infinite"}}/>:<Search size={14}/>}
               {fetching?"Fetching...":"Fetch"}
             </button>
           </div>
-          <div style={{fontSize:11,color:"#475569",marginBottom:12}}>Paste Google Scholar, faculty, or lab page URL. Or type name + university.</div>
-          {fetchErr&&<div style={{fontSize:12,color:"#F87171",marginBottom:10,background:"rgba(239,68,68,0.08)",borderRadius:7,padding:"8px 10px",border:"1px solid rgba(239,68,68,0.2)"}}>⚠ {fetchErr}</div>}
-          {fetched&&<div style={{fontSize:12,color:"#4ADE80",marginBottom:16,background:"rgba(74,222,128,0.08)",borderRadius:7,padding:"8px 10px",border:"1px solid rgba(74,222,128,0.2)"}}>✓ Info fetched! Review below, set tier + categories, then save.</div>}
-          {!fetched&&!fetchErr&&<div style={{textAlign:"center",color:"#475569",padding:"16px 0",fontSize:13}}>Fetch করলে form auto-fill হয়ে যাবে</div>}
+          <div style={{fontSize:11,color:"#9CA3AF",marginBottom:12}}>Type professor name → auto-fills name & university from Semantic Scholar. Country & research focus: fill manually.</div>
+          {fetchErr&&<div style={{fontSize:12,color:"#F87171",marginBottom:10,background:"rgba(254,226,226,0.6)",borderRadius:7,padding:"8px 10px",border:"1px solid rgba(239,68,68,0.2)"}}>⚠ {fetchErr}</div>}
+          {fetched&&<div style={{fontSize:12,color:"#4ADE80",marginBottom:16,background:"rgba(74,222,128,0.08)",borderRadius:7,padding:"8px 10px",border:"1px solid rgba(74,222,128,0.2)"}}>✓ Found on Semantic Scholar! Name & university filled. Set country, research focus, tier & categories below.</div>}
+          {!fetched&&!fetchErr&&<div style={{textAlign:"center",color:"#9CA3AF",padding:"16px 0",fontSize:13}}>Fetch করলে form auto-fill হয়ে যাবে</div>}
         </>}
 
         {/* Form */}
         {showForm && <>
           {[[" Name *","name","text","Prof. Firstname Lastname"],["University *","university","text","e.g. MIT, EPFL"],["Email","email","email","prof@uni.edu"],["Profile URL","profileUrl","url","Faculty / Scholar page"],["Research Focus","researchFocus","text","Brief description"]].map(([lbl,k,t,ph])=>(
             <div key={k} style={{marginBottom:12}}>
-              <label style={{fontSize:11,color:"#64748B",display:"block",marginBottom:5,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"}}>{lbl}</label>
+              <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:5,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"}}>{lbl}</label>
               <input type={t} placeholder={ph} value={f[k]} onChange={e=>set(k,e.target.value)} style={inp}/>
             </div>
           ))}
           <div style={{marginBottom:12}}>
-            <label style={{fontSize:11,color:"#64748B",display:"block",marginBottom:5,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"}}>Country</label>
+            <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:5,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"}}>Country</label>
             <select value={f.country} onChange={e=>set("country",e.target.value)} style={{...inp}}>
               {COUNTRIES.map(c=><option key={c} value={c}>{(FLAGS[c]||"🌍")+" "+c}</option>)}
             </select>
           </div>
           <div style={{marginBottom:12}}>
-            <label style={{fontSize:11,color:"#64748B",display:"block",marginBottom:8,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"}}>Tier</label>
+            <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:8,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"}}>Tier</label>
             <div style={{display:"flex",gap:8}}>
               {[[1,"High","#F87171","rgba(239,68,68,0.1)"],[2,"Medium","#FBBF24","rgba(251,191,36,0.1)"],[3,"Explore","#4ADE80","rgba(74,222,128,0.1)"]].map(([t,desc,col,bg])=>(
-                <button key={t} onClick={()=>set("tier",t)} style={{flex:1,padding:"10px 4px",borderRadius:9,border:`1px solid ${f.tier===t?col:"#1E3A5F"}`,background:f.tier===t?bg:"transparent",color:f.tier===t?col:"#475569",cursor:"pointer",fontWeight:700,fontSize:13}}>
+                <button key={t} onClick={()=>set("tier",t)} style={{flex:1,padding:"10px 4px",borderRadius:9,border:`1px solid ${f.tier===t?col:"#DBEAFE"}`,background:f.tier===t?bg:"transparent",color:f.tier===t?col:"#9CA3AF",cursor:"pointer",fontWeight:700,fontSize:13}}>
                   T{t}<div style={{fontSize:9,fontWeight:400,marginTop:2}}>{desc}</div>
                 </button>
               ))}
             </div>
           </div>
           <div style={{marginBottom:20}}>
-            <label style={{fontSize:11,color:"#64748B",display:"block",marginBottom:8,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"}}>Categories</label>
+            <label style={{fontSize:11,color:"#6B7280",display:"block",marginBottom:8,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"}}>Categories</label>
             <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
               {CATEGORIES.map(c=>(
-                <button key={c.id} onClick={()=>toggleCat(c.id)} style={{padding:"5px 12px",borderRadius:20,border:`1px solid ${f.categories.includes(c.id)?c.color:"#1E3A5F"}`,background:f.categories.includes(c.id)?c.bg:"transparent",color:f.categories.includes(c.id)?c.color:"#475569",cursor:"pointer",fontSize:11,fontWeight:600}}>{c.label}</button>
+                <button key={c.id} onClick={()=>toggleCat(c.id)} style={{padding:"5px 12px",borderRadius:20,border:`1px solid ${f.categories.includes(c.id)?c.color:"#DBEAFE"}`,background:f.categories.includes(c.id)?c.bg:"transparent",color:f.categories.includes(c.id)?c.color:"#9CA3AF",cursor:"pointer",fontSize:11,fontWeight:600}}>{c.label}</button>
               ))}
             </div>
           </div>
@@ -339,7 +352,7 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
 
   const dark = isDark(prof);
   const ds   = daysSince(prof.emailSentDate);
-  const inp  = {background:"#060D1A",border:"1px solid #1E3A5F",borderRadius:8,padding:"10px 12px",color:"#E2E8F0",fontSize:13,outline:"none",boxSizing:"border-box"};
+  const inp  = {background:"#F1F5F9",border:"1px solid #DBEAFE",borderRadius:8,padding:"10px 12px",color:"#111827",fontSize:13,outline:"none",boxSizing:"border-box"};
 
   const doFetch = async () => {
     if(!doi.trim()) return;
@@ -397,21 +410,21 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
   };
 
   return (
-    <div style={{background:"#060D1A",minHeight:"100vh",color:"#E2E8F0",fontFamily:"'SF Pro Display',-apple-system,system-ui,sans-serif"}}>
+    <div style={{background:"#F1F5F9",minHeight:"100vh",color:"#111827",fontFamily:"'SF Pro Display',-apple-system,system-ui,sans-serif"}}>
       <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
 
       {/* Header */}
-      <div style={{background:dark?"#1A0505":"#0A1628",padding:"16px 20px",borderBottom:`1px solid ${dark?"#5C1A1A":"#1E3A5F"}`}}>
+      <div style={{background:dark?"#FFF5F5":"#FFFFFF",padding:"16px 20px",borderBottom:`1px solid ${dark?"#FECACA":"#E2E8F0"}`}}>
         <button onClick={onBack} style={{background:"none",border:"none",color:"#38BDF8",cursor:"pointer",display:"flex",alignItems:"center",gap:5,marginBottom:14,fontSize:13,fontWeight:600}}>
           <ArrowLeft size={15}/> Back
         </button>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div>
-            <div style={{fontSize:11,color:"#475569",marginBottom:3,fontFamily:"'SF Mono',monospace"}}>{FLAGS[prof.country]||"🌍"} {prof.country} · <span style={{color:prof.tier===1?"#F87171":prof.tier===2?"#FBBF24":"#4ADE80"}}>Tier {prof.tier}</span></div>
+            <div style={{fontSize:11,color:"#9CA3AF",marginBottom:3,fontFamily:"'SF Mono',monospace"}}>{FLAGS[prof.country]||"🌍"} {prof.country} · <span style={{color:prof.tier===1?"#F87171":prof.tier===2?"#FBBF24":"#4ADE80"}}>Tier {prof.tier}</span></div>
             <div style={{fontSize:19,fontWeight:800,margin:"4px 0",letterSpacing:"-0.5px"}}>{prof.name}</div>
-            <div style={{fontSize:13,color:"#64748B"}}>{prof.university}</div>
+            <div style={{fontSize:13,color:"#6B7280"}}>{prof.university}</div>
           </div>
-          <button onClick={()=>{if(window.confirm(`Remove ${prof.name}?`)){onDelete();}}} style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:9,padding:"7px 11px",cursor:"pointer",display:"flex"}}>
+          <button onClick={()=>{if(window.confirm(`Remove ${prof.name}?`)){onDelete();}}} style={{background:"rgba(254,226,226,0.6)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:9,padding:"7px 11px",cursor:"pointer",display:"flex"}}>
             <Trash2 size={14} color="#F87171"/>
           </button>
         </div>
@@ -419,12 +432,12 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
         <div style={{marginTop:14,display:"flex",gap:5,flexWrap:"wrap"}}>
           {Object.entries(STATUS).map(([k,v])=>(
             <button key={k} onClick={()=>{ logActivity(prof.name, v.label); onUpdate({status:k,lastActivity:new Date().toISOString()}); }}
-              style={{padding:"4px 10px",borderRadius:20,border:`1px solid ${prof.status===k?v.dot+"99":"#1E3A5F"}`,background:prof.status===k?v.dot+"22":"transparent",color:prof.status===k?v.color:"#475569",cursor:"pointer",fontSize:10,fontWeight:prof.status===k?700:500,transition:"all 0.15s",letterSpacing:"0.2px"}}>
+              style={{padding:"4px 10px",borderRadius:20,border:`1px solid ${prof.status===k?v.dot+"99":"#DBEAFE"}`,background:prof.status===k?v.dot+"22":"transparent",color:prof.status===k?v.color:"#9CA3AF",cursor:"pointer",fontSize:10,fontWeight:prof.status===k?700:500,transition:"all 0.15s",letterSpacing:"0.2px"}}>
               {v.label}
             </button>
           ))}
         </div>
-        {dark&&<div style={{marginTop:12,background:"rgba(220,38,38,0.1)",border:"1px solid rgba(220,38,38,0.3)",borderRadius:9,padding:"9px 13px",fontSize:12,color:"#FCA5A5",lineHeight:1.5}}>
+        {dark&&<div style={{marginTop:12,background:"rgba(254,226,226,0.7)",border:"1px solid rgba(220,38,38,0.3)",borderRadius:9,padding:"9px 13px",fontSize:12,color:"#FCA5A5",lineHeight:1.5}}>
           ⚠ {ds} days since email with no reply. Consider sending a follow-up or updating status.
         </div>}
         {prof.status==="scheduled"&&prof.scheduledDate&&(()=>{
@@ -438,16 +451,16 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
           const bdTime=String(Math.floor(bdMin/60)).padStart(2,'0')+':'+String(bdMin%60).padStart(2,'0');
           return (
             <div style={{marginTop:10,background:"rgba(124,58,237,0.1)",border:"1px solid rgba(124,58,237,0.3)",borderRadius:9,padding:"9px 13px",fontSize:12,color:"#C084FC"}}>
-              📅 {prof.scheduledDate} · <strong>{prof.scheduledTime}</strong> {info.tzLabel} time = <strong style={{color:"#E2E8F0"}}>{bdTime}</strong> Bangladesh time
+              📅 {prof.scheduledDate} · <strong>{prof.scheduledTime}</strong> {info.tzLabel} time = <strong style={{color:"#111827"}}>{bdTime}</strong> Bangladesh time
             </div>
           );
         })()}
       </div>
 
       {/* Tabs */}
-      <div style={{display:"flex",borderBottom:"1px solid #0F1C2E",background:"#060D1A",position:"sticky",top:0,zIndex:10}}>
+      <div style={{display:"flex",borderBottom:"1px solid #E2E8F0",background:"#F1F5F9",position:"sticky",top:0,zIndex:10}}>
         {[["overview","Overview"],["papers","Papers 📄"],["email","Email Gen 🤖"]].map(([t,lbl])=>(
-          <button key={t} onClick={()=>setTab(t)} style={{flex:1,padding:13,border:"none",background:"none",color:tab===t?"#38BDF8":"#475569",fontWeight:tab===t?700:500,fontSize:13,cursor:"pointer",borderBottom:tab===t?"2px solid #38BDF8":"2px solid transparent",transition:"all 0.2s",letterSpacing:"-0.2px"}}>
+          <button key={t} onClick={()=>setTab(t)} style={{flex:1,padding:13,border:"none",background:"none",color:tab===t?"#38BDF8":"#9CA3AF",fontWeight:tab===t?700:500,fontSize:13,cursor:"pointer",borderBottom:tab===t?"2px solid #0284C7":"2px solid transparent",transition:"all 0.2s",letterSpacing:"-0.2px"}}>
             {lbl}
           </button>
         ))}
@@ -456,13 +469,13 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
       <div style={{padding:20}}>
         {/* OVERVIEW */}
         {tab==="overview"&&<>
-          <div style={{background:"#0A1628",borderRadius:12,padding:16,marginBottom:14,border:"1px solid #1E3A5F"}}>
-            <div style={{fontSize:10,color:"#475569",marginBottom:8,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.8px"}}>Research Focus</div>
-            <div style={{fontSize:14,lineHeight:1.7,color:"#CBD5E1"}}>{prof.researchFocus||"—"}</div>
+          <div style={{background:"#FFFFFF",borderRadius:12,padding:16,marginBottom:14,border:"1px solid #DBEAFE"}}>
+            <div style={{fontSize:10,color:"#9CA3AF",marginBottom:8,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.8px"}}>Research Focus</div>
+            <div style={{fontSize:14,lineHeight:1.7,color:"#1F2937"}}>{prof.researchFocus||"—"}</div>
           </div>
 
-          <div style={{background:"#0A1628",borderRadius:12,padding:16,marginBottom:14,border:"1px solid #1E3A5F"}}>
-            <div style={{fontSize:10,color:"#475569",marginBottom:12,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.8px"}}>📅 Schedule Email</div>
+          <div style={{background:"#FFFFFF",borderRadius:12,padding:16,marginBottom:14,border:"1px solid #DBEAFE"}}>
+            <div style={{fontSize:10,color:"#9CA3AF",marginBottom:12,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.8px"}}>📅 Schedule Email</div>
             <div style={{display:"flex",gap:8,marginBottom:10}}>
               <input type="date" value={schedDate} onChange={e=>setSchedDate(e.target.value)} style={{...inp,flex:1}}/>
               <input type="time" value={schedTime} onChange={e=>setSchedTime(e.target.value)} style={{...inp,width:86}}/>
@@ -474,8 +487,8 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
                   <div style={{fontSize:12,color:"#38BDF8",fontWeight:700,marginBottom:2}}>
                     {schedTime} {info.tzLabel} time
                   </div>
-                  <div style={{fontSize:11,color:"#64748B"}}>
-                    = <span style={{color:"#CBD5E1",fontWeight:600}}>{(()=>{
+                  <div style={{fontSize:11,color:"#6B7280"}}>
+                    = <span style={{color:"#1F2937",fontWeight:600}}>{(()=>{
                       const [h,m]=schedTime.split(':').map(Number);
                       const ref = new Date(schedDate+'T12:00:00');
                       const profOff = getTzOffsetMin(COUNTRY_TZ[prof.country]||'America/New_York', ref);
@@ -489,7 +502,7 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
               );
             })()}
             {!schedDate && (
-              <div style={{fontSize:11,color:"#475569",marginBottom:10}}>
+              <div style={{fontSize:11,color:"#9CA3AF",marginBottom:10}}>
                 ⏰ Pick a date — app will auto-calculate 10:17 AM in {prof.country} timezone
               </div>
             )}
@@ -504,10 +517,10 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
             </button>
           </div>
 
-          <div style={{background:"#0A1628",borderRadius:12,padding:16,marginBottom:14,border:"1px solid #1E3A5F"}}>
-            <div style={{fontSize:10,color:"#475569",marginBottom:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.8px"}}>✉️ Mark Email Sent</div>
+          <div style={{background:"#FFFFFF",borderRadius:12,padding:16,marginBottom:14,border:"1px solid #DBEAFE"}}>
+            <div style={{fontSize:10,color:"#9CA3AF",marginBottom:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.8px"}}>✉️ Mark Email Sent</div>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-              <span style={{fontSize:12,color:"#64748B"}}>Auto follow-up after</span>
+              <span style={{fontSize:12,color:"#6B7280"}}>Auto follow-up after</span>
               <select value={fuDays} onChange={e=>setFuDays(+e.target.value)} style={{...inp,padding:"5px 9px",flex:"none"}}>
                 {[7,14,21].map(d=><option key={d} value={d}>{d} days</option>)}
               </select>
@@ -517,17 +530,17 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
             </button>
           </div>
 
-          {prof.emailSentDate&&<div style={{background:"#0A1628",borderRadius:12,padding:14,marginBottom:14,border:"1px solid #1E3A5F",display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          {prof.emailSentDate&&<div style={{background:"#FFFFFF",borderRadius:12,padding:14,marginBottom:14,border:"1px solid #DBEAFE",display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
             {[["Email Sent",prof.emailSentDate],["Follow-up",prof.followUpDate||"Not set"]].map(([k,v])=>(
-              <div key={k} style={{background:"#060D1A",borderRadius:8,padding:10}}>
-                <div style={{fontSize:10,color:"#475569",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:4}}>{k}</div>
-                <div style={{fontSize:13,color:"#CBD5E1",fontFamily:"'SF Mono',monospace"}}>{v}</div>
+              <div key={k} style={{background:"#F1F5F9",borderRadius:8,padding:10}}>
+                <div style={{fontSize:10,color:"#9CA3AF",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:4}}>{k}</div>
+                <div style={{fontSize:13,color:"#1F2937",fontFamily:"'SF Mono',monospace"}}>{v}</div>
               </div>
             ))}
           </div>}
 
-          <div style={{background:"#0A1628",borderRadius:12,padding:16,border:"1px solid #1E3A5F"}}>
-            <div style={{fontSize:10,color:"#475569",marginBottom:8,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.8px"}}>📝 Notes</div>
+          <div style={{background:"#FFFFFF",borderRadius:12,padding:16,border:"1px solid #DBEAFE"}}>
+            <div style={{fontSize:10,color:"#9CA3AF",marginBottom:8,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.8px"}}>📝 Notes</div>
             <textarea value={notes} onChange={e=>setNotes(e.target.value)} onBlur={()=>onUpdate({notes})}
               placeholder="Notes about this professor, lab, funding situation..."
               style={{...inp,width:"100%",minHeight:80,resize:"vertical",lineHeight:1.6,fontFamily:"inherit"}}/>
@@ -539,10 +552,10 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
           {/* Suggest Paper */}
           <div style={{background:"rgba(192,132,252,0.08)",border:"1px solid rgba(192,132,252,0.25)",borderRadius:12,padding:14,marginBottom:14}}>
             <div style={{fontSize:11,color:"#C084FC",fontWeight:800,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.5px"}}>✨ AI Paper Suggestion</div>
-            <div style={{fontSize:12,color:"#94A3B8",marginBottom:10,lineHeight:1.5}}>Gemini searches this professor's publications and picks the most relevant paper for your cold email.</div>
-            {suggested&&<div style={{background:"rgba(14,116,144,0.1)",border:"1px solid rgba(56,189,248,0.2)",borderRadius:9,padding:12,marginBottom:10}}>
-              <div style={{fontSize:13,fontWeight:700,color:"#E2E8F0",marginBottom:4}}>{suggested.title} ({suggested.year})</div>
-              <div style={{fontSize:11,color:"#64748B",marginBottom:6}}>by {suggested.authors?.map?.(a=>a.name).join(", ")||"Unknown"}</div>
+            <div style={{fontSize:12,color:"#4B5563",marginBottom:10,lineHeight:1.5}}>Gemini searches this professor's publications and picks the most relevant paper for your cold email.</div>
+            {suggested&&<div style={{background:"rgba(14,116,144,0.07)",border:"1px solid rgba(56,189,248,0.2)",borderRadius:9,padding:12,marginBottom:10}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#111827",marginBottom:4}}>{suggested.title} ({suggested.year})</div>
+              <div style={{fontSize:11,color:"#6B7280",marginBottom:6}}>by {suggested.authors?.map?.(a=>a.name).join(", ")||"Unknown"}</div>
               <div style={{fontSize:12,color:"#93C5FD",marginBottom:10,lineHeight:1.5}}>💡 {suggested.reason}</div>
               <div style={{display:"flex",gap:8}}>
                 {suggested.doi&&<button onClick={()=>{setDoi(suggested.doi);setSuggested(null);}} style={{flex:1,background:"rgba(56,189,248,0.1)",border:"1px solid rgba(56,189,248,0.35)",borderRadius:8,padding:8,color:"#38BDF8",cursor:"pointer",fontSize:12,fontWeight:700}}>Add by DOI →</button>}
@@ -559,8 +572,8 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
             </button>
           </div>
 
-          <div style={{background:"#0A1628",borderRadius:12,padding:16,marginBottom:16,border:"1px solid #1E3A5F"}}>
-            <div style={{fontSize:10,color:"#475569",marginBottom:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.8px"}}>Add Paper by DOI</div>
+          <div style={{background:"#FFFFFF",borderRadius:12,padding:16,marginBottom:16,border:"1px solid #DBEAFE"}}>
+            <div style={{fontSize:10,color:"#9CA3AF",marginBottom:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.8px"}}>Add Paper by DOI</div>
             <div style={{display:"flex",gap:8}}>
               <input value={doi} onChange={e=>setDoi(e.target.value)} placeholder="10.1038/s41524-..." style={{...inp,flex:1}}
                 onKeyDown={e=>e.key==="Enter"&&doFetch()}/>
@@ -570,21 +583,21 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
               </button>
             </div>
             {fetchErr&&<div style={{fontSize:12,color:"#F87171",marginTop:6}}>{fetchErr}</div>}
-            <div style={{fontSize:11,color:"#475569",marginTop:7}}>Fetches title, abstract, authors from Semantic Scholar → CrossRef</div>
+            <div style={{fontSize:11,color:"#9CA3AF",marginTop:7}}>Fetches title, abstract, authors from Semantic Scholar → CrossRef</div>
           </div>
 
-          {(!prof.papers||prof.papers.length===0)&&<div style={{textAlign:"center",color:"#475569",padding:"50px 20px"}}>
+          {(!prof.papers||prof.papers.length===0)&&<div style={{textAlign:"center",color:"#9CA3AF",padding:"50px 20px"}}>
             <BookOpen size={36} style={{opacity:0.3,marginBottom:12,display:"block",margin:"0 auto 12px"}}/>
             <div style={{fontSize:14}}>No papers added yet.</div>
             <div style={{fontSize:12,marginTop:4}}>Paste a DOI above and click Fetch.</div>
           </div>}
 
           {prof.papers?.map(paper=>(
-            <div key={paper.id} style={{background:"#0A1628",borderRadius:12,padding:16,marginBottom:12,border:`1px solid ${selPaper?.id===paper.id?"#38BDF866":"#1E3A5F"}`}}>
-              <div style={{fontSize:14,fontWeight:700,lineHeight:1.4,marginBottom:6,color:"#E2E8F0"}}>{paper.title}</div>
-              <div style={{fontSize:11,color:"#475569",marginBottom:10,fontFamily:"'SF Mono',monospace"}}>{paper.authors} · {paper.year} · {paper.source}</div>
-              {paper.abstract&&<div style={{fontSize:12,color:"#64748B",lineHeight:1.6,marginBottom:10,display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{paper.abstract}</div>}
-              {paper.summary&&<div style={{background:"rgba(14,116,144,0.1)",border:"1px solid rgba(56,189,248,0.2)",borderRadius:9,padding:12,marginBottom:10}}>
+            <div key={paper.id} style={{background:"#FFFFFF",borderRadius:12,padding:16,marginBottom:12,border:`1px solid ${selPaper?.id===paper.id?"#38BDF866":"#DBEAFE"}`}}>
+              <div style={{fontSize:14,fontWeight:700,lineHeight:1.4,marginBottom:6,color:"#111827"}}>{paper.title}</div>
+              <div style={{fontSize:11,color:"#9CA3AF",marginBottom:10,fontFamily:"'SF Mono',monospace"}}>{paper.authors} · {paper.year} · {paper.source}</div>
+              {paper.abstract&&<div style={{fontSize:12,color:"#6B7280",lineHeight:1.6,marginBottom:10,display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{paper.abstract}</div>}
+              {paper.summary&&<div style={{background:"rgba(14,116,144,0.07)",border:"1px solid rgba(56,189,248,0.2)",borderRadius:9,padding:12,marginBottom:10}}>
                 <div style={{fontSize:10,color:"#38BDF8",fontWeight:800,marginBottom:5,textTransform:"uppercase",letterSpacing:"0.5px"}}>🤖 AI Summary</div>
                 <div style={{fontSize:12,lineHeight:1.7,color:"#93C5FD",whiteSpace:"pre-line"}}>{paper.summary}</div>
               </div>}
@@ -599,7 +612,7 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
                   Use for Email
                 </button>
                 <button onClick={()=>{onUpdate({papers:prof.papers.filter(p=>p.id!==paper.id)});if(selPaper?.id===paper.id)setSelPaper(null);}}
-                  style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:8,padding:8,cursor:"pointer",display:"flex"}}>
+                  style={{background:"rgba(254,226,226,0.6)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:8,padding:8,cursor:"pointer",display:"flex"}}>
                   <Trash2 size={12} color="#F87171"/>
                 </button>
               </div>
@@ -610,17 +623,17 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
         {/* EMAIL GEN */}
         {tab==="email"&&<>
           {selPaper?(
-            <div style={{background:"rgba(14,116,144,0.08)",border:"1px solid rgba(56,189,248,0.2)",borderRadius:10,padding:13,marginBottom:14}}>
+            <div style={{background:"rgba(14,116,144,0.06)",border:"1px solid rgba(56,189,248,0.2)",borderRadius:10,padding:13,marginBottom:14}}>
               <div style={{fontSize:10,color:"#38BDF8",fontWeight:800,marginBottom:4,textTransform:"uppercase",letterSpacing:"0.5px"}}>📄 Selected Paper</div>
-              <div style={{fontSize:13,fontWeight:700,color:"#E2E8F0",marginBottom:4}}>{selPaper.title}</div>
+              <div style={{fontSize:13,fontWeight:700,color:"#111827",marginBottom:4}}>{selPaper.title}</div>
               {summary&&<div style={{fontSize:12,color:"#93C5FD",lineHeight:1.7,marginTop:8,whiteSpace:"pre-line",borderTop:"1px solid rgba(56,189,248,0.15)",paddingTop:8}}>{summary}</div>}
             </div>
           ):prof.papers?.length>0?(
             <div style={{marginBottom:14}}>
-              <div style={{fontSize:11,color:"#64748B",marginBottom:8,fontWeight:600}}>Select paper for email:</div>
+              <div style={{fontSize:11,color:"#6B7280",marginBottom:8,fontWeight:600}}>Select paper for email:</div>
               {prof.papers.map(p=>(
                 <button key={p.id} onClick={()=>{setSelPaper(p);setSummary(p.summary||"");}}
-                  style={{display:"block",width:"100%",textAlign:"left",background:selPaper?.id===p.id?"rgba(14,116,144,0.1)":"#0A1628",border:`1px solid ${selPaper?.id===p.id?"#38BDF866":"#1E3A5F"}`,borderRadius:9,padding:11,color:"#E2E8F0",cursor:"pointer",marginBottom:6,fontSize:13}}>
+                  style={{display:"block",width:"100%",textAlign:"left",background:selPaper?.id===p.id?"rgba(14,116,144,0.07)":"#FFFFFF",border:`1px solid ${selPaper?.id===p.id?"#38BDF866":"#DBEAFE"}`,borderRadius:9,padding:11,color:"#111827",cursor:"pointer",marginBottom:6,fontSize:13}}>
                   {p.title}
                 </button>
               ))}
@@ -637,9 +650,9 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
           </button>
 
           {email&&<>
-            <div style={{background:"#0A1628",borderRadius:12,padding:16,marginBottom:12,border:"1px solid #1E3A5F"}}>
+            <div style={{background:"#FFFFFF",borderRadius:12,padding:16,marginBottom:12,border:"1px solid #DBEAFE"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                <div style={{fontSize:12,fontWeight:700,color:"#CBD5E1",textTransform:"uppercase",letterSpacing:"0.5px"}}>Email Draft (paste from Claude.ai)</div>
+                <div style={{fontSize:12,fontWeight:700,color:"#1F2937",textTransform:"uppercase",letterSpacing:"0.5px"}}>Email Draft (paste from Claude.ai)</div>
                 <button onClick={()=>{navigator.clipboard.writeText(email);setCopied(true);setTimeout(()=>setCopied(false),2000);}}
                   style={{background:copied?"rgba(22,163,74,0.15)":"rgba(2,132,199,0.1)",border:`1px solid ${copied?"rgba(74,222,128,0.4)":"rgba(56,189,248,0.35)"}`,borderRadius:8,padding:"6px 12px",color:copied?"#4ADE80":"#38BDF8",cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:5,transition:"all 0.2s"}}>
                   <Copy size={12}/>{copied?"Copied!":"Copy All"}
@@ -648,7 +661,7 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
               <textarea value={email} onChange={e=>setEmail(e.target.value)}
                 style={{...inp,width:"100%",minHeight:340,resize:"vertical",lineHeight:1.8,fontFamily:"Georgia,serif",fontSize:13}}/>
             </div>
-            <div style={{fontSize:12,color:"#475569",marginBottom:14,lineHeight:1.6,background:"rgba(255,255,255,0.02)",borderRadius:8,padding:"10px 12px",border:"1px solid #0F1C2E"}}>
+            <div style={{fontSize:12,color:"#9CA3AF",marginBottom:14,lineHeight:1.6,background:"rgba(0,0,0,0.02)",borderRadius:8,padding:"10px 12px",border:"1px solid #0F1C2E"}}>
               ✏️ Edit freely. Add 1-2 small grammar tweaks to sound more natural and human.
             </div>
             <button onClick={markSent} style={{width:"100%",background:"rgba(22,163,74,0.1)",border:"1px solid rgba(74,222,128,0.35)",borderRadius:12,padding:14,color:"#4ADE80",cursor:"pointer",fontSize:15,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",gap:8,letterSpacing:"-0.3px"}}>
@@ -740,27 +753,27 @@ export default function ProfTracker() {
     const Icon=cat?.icon||Cpu;
 
     return (
-      <div style={{background:"#060D1A",minHeight:"100vh",color:"#E2E8F0",fontFamily:"'SF Pro Display',-apple-system,system-ui,sans-serif"}}>
-        <div style={{background:"#0A1628",padding:"14px 20px",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #1E3A5F",position:"sticky",top:0,zIndex:10}}>
+      <div style={{background:"#F1F5F9",minHeight:"100vh",color:"#111827",fontFamily:"'SF Pro Display',-apple-system,system-ui,sans-serif"}}>
+        <div style={{background:"#FFFFFF",padding:"14px 20px",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #E2E8F0",position:"sticky",top:0,zIndex:10}}>
           <button onClick={()=>setView("home")} style={{background:"none",border:"none",color:"#38BDF8",cursor:"pointer",display:"flex",alignItems:"center",gap:4,fontSize:13,fontWeight:600}}><ArrowLeft size={15}/> Back</button>
-          <div style={{width:1,height:18,background:"#1E3A5F"}}/>
+          <div style={{width:1,height:18,background:"#DBEAFE"}}/>
           <Icon size={16} color={cat?.color}/>
           <span style={{fontSize:16,fontWeight:800,letterSpacing:"-0.3px"}}>{cat?.label}</span>
           <span style={{marginLeft:"auto",background:cat?.bg,color:cat?.color,padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:700,border:`1px solid ${cat?.color}33`}}>{list.length} of {getCatProfs(catId).length}</span>
         </div>
 
-        <div style={{padding:"12px 20px",display:"flex",gap:8,flexWrap:"wrap",borderBottom:"1px solid #0F1C2E"}}>
-          <div style={{display:"flex",alignItems:"center",gap:6,background:"#0A1628",border:"1px solid #1E3A5F",borderRadius:8,padding:"8px 12px",flex:1,minWidth:150}}>
-            <Search size={13} color="#475569"/>
+        <div style={{padding:"12px 20px",display:"flex",gap:8,flexWrap:"wrap",borderBottom:"1px solid #E2E8F0"}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,background:"#FFFFFF",border:"1px solid #DBEAFE",borderRadius:8,padding:"8px 12px",flex:1,minWidth:150}}>
+            <Search size={13} color="#9CA3AF"/>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name / university..."
-              style={{background:"none",border:"none",color:"#E2E8F0",outline:"none",fontSize:13,width:"100%"}}/>
+              style={{background:"none",border:"none",color:"#111827",outline:"none",fontSize:13,width:"100%"}}/>
           </div>
           {[[countries,cFilter,setCFilter,"Country"],
             [["All","1","2","3"],tFilter,setTFilter,"Tier"],
             [["All",...Object.keys(STATUS)],sFilter,setSFilter,"Status"]
           ].map(([opts,val,fn,ph],i)=>(
             <select key={i} value={val} onChange={e=>fn(e.target.value)}
-              style={{background:"#0A1628",border:"1px solid #1E3A5F",color:val==="All"?"#475569":"#E2E8F0",borderRadius:8,padding:"8px 10px",fontSize:12,outline:"none"}}>
+              style={{background:"#FFFFFF",border:"1px solid #DBEAFE",color:val==="All"?"#9CA3AF":"#111827",borderRadius:8,padding:"8px 10px",fontSize:12,outline:"none"}}>
               {opts.map(o=><option key={o} value={o}>{o==="All"?ph:(i===1?`Tier ${o}`:(STATUS[o]?.label||o))}</option>)}
             </select>
           ))}
@@ -768,7 +781,7 @@ export default function ProfTracker() {
 
         <div style={{padding:20,display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(275px,1fr))",gap:12}}>
           {list.map(p=><ProfCard key={p.id} prof={p} onClick={()=>{setProfId(p.id);setView("detail");}}/>)}
-          {list.length===0&&<div style={{gridColumn:"1/-1",textAlign:"center",color:"#475569",padding:60,fontSize:14}}>No professors match. Try adjusting filters.</div>}
+          {list.length===0&&<div style={{gridColumn:"1/-1",textAlign:"center",color:"#9CA3AF",padding:60,fontSize:14}}>No professors match. Try adjusting filters.</div>}
         </div>
 
         <button onClick={()=>setAddModal(true)} style={{position:"fixed",bottom:24,right:24,background:`linear-gradient(135deg,${cat?.color||"#38BDF8"},${cat?.color||"#38BDF8"}88)`,border:"none",borderRadius:"50%",width:54,height:54,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxShadow:`0 4px 24px ${cat?.color||"#38BDF8"}44`}}>
@@ -783,21 +796,21 @@ export default function ProfTracker() {
   const nav = id => {setCatId(id);setCFilter("All");setTFilter("All");setSFilter("All");setSearch("");setView("category");};
 
   return (
-    <div style={{background:"#060D1A",minHeight:"100vh",color:"#E2E8F0",fontFamily:"'SF Pro Display',-apple-system,system-ui,sans-serif"}}>
+    <div style={{background:"#F1F5F9",minHeight:"100vh",color:"#111827",fontFamily:"'SF Pro Display',-apple-system,system-ui,sans-serif"}}>
       <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
       {/* Top bar */}
-      <div style={{background:"#0A1628",padding:"14px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #1E3A5F",position:"sticky",top:0,zIndex:10}}>
+      <div style={{background:"#FFFFFF",padding:"14px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #E2E8F0",position:"sticky",top:0,zIndex:10}}>
         <div>
-          <div style={{fontSize:18,fontWeight:900,letterSpacing:"-0.8px",background:"linear-gradient(135deg,#38BDF8,#C084FC)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>🎓 ProfTracker</div>
-          <div style={{fontSize:10,color:"#475569",fontFamily:"'SF Mono',monospace",marginTop:1}}>PhD Outreach — Fall 2027</div>
+          <div style={{fontSize:18,fontWeight:900,letterSpacing:"-0.8px",color:"#0284C7"}}>🎓 ProfTracker</div>
+          <div style={{fontSize:10,color:"#9CA3AF",fontFamily:"'SF Mono',monospace",marginTop:1}}>PhD Outreach — Fall 2027</div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <button onClick={exportData} title="Export backup" style={{background:"rgba(255,255,255,0.04)",border:"1px solid #1E3A5F",borderRadius:8,padding:7,cursor:"pointer",display:"flex"}}><Download size={14} color="#64748B"/></button>
-          <button onClick={importData} title="Import backup" style={{background:"rgba(255,255,255,0.04)",border:"1px solid #1E3A5F",borderRadius:8,padding:7,cursor:"pointer",display:"flex"}}><Upload size={14} color="#64748B"/></button>
+          <button onClick={exportData} title="Export backup" style={{background:"rgba(0,0,0,0.04)",border:"1px solid #DBEAFE",borderRadius:8,padding:7,cursor:"pointer",display:"flex"}}><Download size={14} color="#6B7280"/></button>
+          <button onClick={importData} title="Import backup" style={{background:"rgba(0,0,0,0.04)",border:"1px solid #DBEAFE",borderRadius:8,padding:7,cursor:"pointer",display:"flex"}}><Upload size={14} color="#6B7280"/></button>
 
           <div style={{position:"relative",cursor:"pointer"}}>
-            <Bell size={20} color="#64748B"/>
+            <Bell size={20} color="#6B7280"/>
             {followUps.length>0&&<div style={{position:"absolute",top:-7,right:-7,background:"#DC2626",color:"white",borderRadius:"50%",width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800}}>{followUps.length}</div>}
           </div>
         </div>
@@ -805,7 +818,7 @@ export default function ProfTracker() {
 
       {/* Follow-up banner */}
       {followUps.length>0&&(
-        <div style={{background:"rgba(185,28,28,0.2)",borderBottom:"1px solid rgba(239,68,68,0.25)",padding:"10px 20px",display:"flex",gap:8,alignItems:"center"}}>
+        <div style={{background:"rgba(254,226,226,0.8)",borderBottom:"1px solid rgba(239,68,68,0.25)",padding:"10px 20px",display:"flex",gap:8,alignItems:"center"}}>
           <AlertTriangle size={13} color="#FCA5A5"/>
           <span style={{fontSize:13,color:"#FCA5A5",fontWeight:600}}>Follow-up due: {followUps[0].name}{followUps.length>1?` (+${followUps.length-1} more)`:""}</span>
           <button onClick={()=>{setProfId(followUps[0].id);setView("detail");}} style={{marginLeft:"auto",background:"none",border:"1px solid #FCA5A580",borderRadius:7,padding:"3px 10px",color:"#FCA5A5",cursor:"pointer",fontSize:12,fontWeight:600}}>View →</button>
@@ -815,17 +828,17 @@ export default function ProfTracker() {
       {/* Stats */}
       <div style={{padding:20,display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,animation:"fadeIn 0.4s ease"}}>
         {[{lbl:"Professors",val:stats.total,icon:Users,c:"#38BDF8"},{lbl:"Emailed",val:stats.sent,icon:Mail,c:"#C084FC"},{lbl:"Replied",val:stats.replied,icon:CheckCircle,c:"#4ADE80"},{lbl:"Follow-ups",val:stats.fu,icon:Bell,c:"#FBBF24"}].map(({lbl,val,icon:Icon,c})=>(
-          <div key={lbl} style={{background:"#0A1628",borderRadius:12,padding:"14px 12px",border:"1px solid #1E3A5F"}}>
+          <div key={lbl} style={{background:"#FFFFFF",borderRadius:12,padding:"14px 12px",border:"1px solid #DBEAFE"}}>
             <Icon size={15} color={c}/>
             <div style={{fontSize:24,fontWeight:900,marginTop:8,color:c,letterSpacing:"-1px",fontVariantNumeric:"tabular-nums"}}>{val}</div>
-            <div style={{fontSize:10,color:"#475569",marginTop:2,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"}}>{lbl}</div>
+            <div style={{fontSize:10,color:"#9CA3AF",marginTop:2,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px"}}>{lbl}</div>
           </div>
         ))}
       </div>
 
       {/* Categories */}
       <div style={{padding:"0 20px 20px"}}>
-        <div style={{fontSize:10,color:"#475569",fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",marginBottom:12}}>Research Categories</div>
+        <div style={{fontSize:10,color:"#9CA3AF",fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",marginBottom:12}}>Research Categories</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10}}>
           {CATEGORIES.map((cat,i)=>{
             const cp=getCatProfs(cat.id);
@@ -834,14 +847,14 @@ export default function ProfTracker() {
             return (
               <button key={cat.id} onClick={()=>nav(cat.id)} style={{background:cat.bg,border:`1px solid ${cat.color}33`,borderRadius:15,padding:16,textAlign:"left",cursor:"pointer",transition:"transform 0.15s, border-color 0.15s",animation:`fadeIn 0.4s ease ${i*0.04}s both`}}
                 onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.borderColor=cat.color+"66";}}
-                onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.borderColor=cat.color+"33";}}>
+                onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.borderColor=cat.color+"55";}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                   <Icon size={20} color={cat.color}/>
                   <ChevronRight size={13} color={cat.color+"88"}/>
                 </div>
-                <div style={{fontSize:13,fontWeight:800,color:"#E2E8F0",marginBottom:3,letterSpacing:"-0.3px"}}>{cat.label}</div>
-                <div style={{fontSize:11,color:"#64748B"}}>{cp.length} profs · {sent} contacted</div>
-                <div style={{marginTop:10,background:"rgba(0,0,0,0.3)",borderRadius:4,height:3,overflow:"hidden"}}>
+                <div style={{fontSize:13,fontWeight:800,color:"#111827",marginBottom:3,letterSpacing:"-0.3px"}}>{cat.label}</div>
+                <div style={{fontSize:11,color:"#6B7280"}}>{cp.length} profs · {sent} contacted</div>
+                <div style={{marginTop:10,background:"rgba(0,0,0,0.07)",borderRadius:4,height:3,overflow:"hidden"}}>
                   <div style={{width:cp.length?`${(sent/cp.length)*100}%`:"0%",background:`linear-gradient(90deg,${cat.color}99,${cat.color})`,height:"100%",borderRadius:4,transition:"width 0.6s ease"}}/>
                 </div>
               </button>
@@ -853,14 +866,14 @@ export default function ProfTracker() {
       {/* No response section */}
       {darkCards.length>0&&(
         <div style={{padding:"0 20px 24px"}}>
-          <div style={{fontSize:10,color:"#F87171",fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",marginBottom:10}}>⚠ No Response (14+ Days)</div>
+          <div style={{fontSize:10,color:"#DC2626",fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",marginBottom:10}}>⚠ No Response (14+ Days)</div>
           {darkCards.map(p=>(
-            <div key={p.id} style={{background:"#1A0505",border:"1px solid #5C1A1A",borderRadius:10,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <div key={p.id} style={{background:"#FFF5F5",border:"1px solid #FECACA",borderRadius:10,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
               <div>
                 <div style={{fontSize:13,fontWeight:700}}>{p.name}</div>
-                <div style={{fontSize:11,color:"#64748B",marginTop:2,fontFamily:"'SF Mono',monospace"}}>{daysSince(p.emailSentDate)}d · {p.university}</div>
+                <div style={{fontSize:11,color:"#6B7280",marginTop:2,fontFamily:"'SF Mono',monospace"}}>{daysSince(p.emailSentDate)}d · {p.university}</div>
               </div>
-              <button onClick={()=>{setProfId(p.id);setView("detail");}} style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",color:"#F87171",borderRadius:7,padding:"5px 11px",fontSize:12,fontWeight:600,cursor:"pointer"}}>View</button>
+              <button onClick={()=>{setProfId(p.id);setView("detail");}} style={{background:"rgba(254,226,226,0.7)",border:"1px solid rgba(239,68,68,0.3)",color:"#F87171",borderRadius:7,padding:"5px 11px",fontSize:12,fontWeight:600,cursor:"pointer"}}>View</button>
             </div>
           ))}
         </div>
@@ -874,7 +887,7 @@ export default function ProfTracker() {
             <div key={p.id} style={{background:"rgba(124,58,237,0.08)",border:"1px solid rgba(192,132,252,0.25)",borderRadius:10,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
               <div>
                 <div style={{fontSize:13,fontWeight:700}}>{p.name}</div>
-                <div style={{fontSize:11,color:"#64748B",marginTop:2}}>{p.scheduledTime} local time · {p.university}</div>
+                <div style={{fontSize:11,color:"#6B7280",marginTop:2}}>{p.scheduledTime} local time · {p.university}</div>
               </div>
               <button onClick={()=>{setProfId(p.id);setView("detail");}} style={{background:"rgba(192,132,252,0.12)",border:"1px solid rgba(192,132,252,0.35)",color:"#C084FC",borderRadius:7,padding:"5px 11px",fontSize:12,fontWeight:600,cursor:"pointer"}}>Open</button>
             </div>
@@ -885,9 +898,9 @@ export default function ProfTracker() {
       {/* Recent Activity */}
       {activityLog.length>0&&(
         <div style={{padding:"0 20px 88px"}}>
-          <div style={{fontSize:10,color:"#475569",fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",marginBottom:10}}>🕐 Recent Activity</div>
+          <div style={{fontSize:10,color:"#9CA3AF",fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",marginBottom:10}}>🕐 Recent Activity</div>
           {activityLog.slice(0,6).map(a=>(
-            <div key={a.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #0F1C2E"}}>
+            <div key={a.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #E2E8F0"}}>
               <div style={{width:32,height:32,borderRadius:"50%",background:
                 a.action.includes("Sent")?"rgba(2,132,199,0.15)":
                 a.action.includes("Replied")||a.action.includes("Interview")?"rgba(22,163,74,0.15)":
@@ -899,11 +912,11 @@ export default function ProfTracker() {
                  a.action.includes("Replied")||a.action.includes("Interview")?<CheckCircle size={13} color="#4ADE80"/>:
                  a.action.includes("Added")?<Plus size={13} color="#C084FC"/>:
                  a.action.includes("Scheduled")?<Calendar size={13} color="#C084FC"/>:
-                 <Clock size={13} color="#64748B"/>}
+                 <Clock size={13} color="#6B7280"/>}
               </div>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:600,color:"#E2E8F0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.profName}</div>
-                <div style={{fontSize:11,color:"#64748B"}}>{a.action}{a.detail?" · "+a.detail:""}</div>
+                <div style={{fontSize:13,fontWeight:600,color:"#111827",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.profName}</div>
+                <div style={{fontSize:11,color:"#6B7280"}}>{a.action}{a.detail?" · "+a.detail:""}</div>
               </div>
               <div style={{fontSize:10,color:"#334155",fontFamily:"'SF Mono',monospace",flexShrink:0}}>{timeAgo(a.time)}</div>
             </div>
