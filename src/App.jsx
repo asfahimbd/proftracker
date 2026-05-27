@@ -51,7 +51,7 @@ const FLAGS = {
 const COUNTRIES = [...Object.keys(FLAGS), "Other"];
 
 const COUNTRY_TZ = {
-  'USA':         'America/New_York',   // default Eastern (most universities)
+  'USA':         'America/New_York',   
   'Finland':     'Europe/Helsinki',
   'Switzerland': 'Europe/Zurich',
   'UK':          'Europe/London',
@@ -83,7 +83,7 @@ const getScheduleInfo = (country, dateStr) => {
   const profOff = getTzOffsetMin(tz, ref);
   const bdOff   = getTzOffsetMin(BD_TZ, ref);
   const diffMin = bdOff - profOff;
-  // 10:17 AM prof time → BD time
+  
   const profMin = 10 * 60 + 17;
   const bdMin   = ((profMin + diffMin) % 1440 + 1440) % 1440;
   const bdH = String(Math.floor(bdMin / 60)).padStart(2, '0');
