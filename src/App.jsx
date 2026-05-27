@@ -151,9 +151,6 @@ const timeAgo = t => {
 
 /* ─── API ─── */
 
-// Get Gemini API key from localStorage
-const getKey = () => localStorage.getItem("pt_gemini_key") || "";
-
 async function fetchPaper(doi) {
   try {
     const r = await fetch(`https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=title,abstract,year,authors,tldr`);
@@ -166,127 +163,25 @@ async function fetchPaper(doi) {
   return null;
 }
 
-async function callGemini(prompt) {
-  const key = getKey();
-  if(!key) throw new Error("NO_KEY");
-  const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
-    { method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ contents:[{ parts:[{ text: prompt }] }] }) }
-  );
-  const d = await r.json();
-  if(d.error) throw new Error(d.error.message);
-  return d.candidates?.[0]?.content?.parts?.[0]?.text || "";
-}
 
-// Robustly extract JSON from Gemini response (handles markdown fences)
-function extractJSON(text) {
-  // Try raw parse first
-  try { return JSON.parse(text.trim()); } catch {}
-  // Strip markdown fences
-  const stripped = text.replace(/```json\s*/gi,"").replace(/```\s*/g,"").trim();
-  try { return JSON.parse(stripped); } catch {}
-  // Find first { ... } block
-  const match = text.match(/\{[\s\S]*\}/);
-  if(match) { try { return JSON.parse(match[0]); } catch {} }
-  throw new Error("Could not parse JSON from response");
-}
+// Generate email prompt for Claude.ai
+function buildEmailPrompt(prof, paper) {
+  return `Write a cold PhD application email (200-250 words).
 
-async function suggestPaper(prof) {
-  // Search Semantic Scholar for papers by this professor
-  const lastName = prof.name.split(" ").pop();
-  let papers = [];
-  try {
-    const r = await fetch(`https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(prof.name+" "+lastName)}&fields=title,abstract,year,authors,externalIds&limit=10`);
-    const d = await r.json();
-    papers = (d.data||[]).filter(p =>
-      p.authors?.some(a => a.name.toLowerCase().includes(lastName.toLowerCase()))
-    ).slice(0,7);
-  } catch {}
-  if(!papers.length) return null;
+APPLICANT: Abdullah Shadek Fahim, CGPA 3.80/4.00, JUST Bangladesh
+THESIS: A Dual-Stage Hybrid Random Forest Framework for Ion Implantation in Si, SiC, GaAs — 415x speedup over SRIM
+PUBLICATIONS:
+• J1 Under Review (Comp. Materials Sci.): Dual-Stage RF for Ion Range & Damage Prediction
+• J2 Under Review (Fusion Eng. Design): H Implantation in W via MD — 2nd author  
+• C1 IEEE Xplore: CardioPredictor DOI:10.1109/QPAIN66474.2025.11171821
+• C2 Accepted ICOPS 2026: ML Surrogate for Ion Implantation in GaAs
 
-  const list = papers.map((p,i)=>`${i+1}. "${p.title}" (${p.year||"?"})`).join("\n");
-  const resp = await callGemini(`I am a PhD applicant. My thesis: "${ME.thesis}" — 415× speedup over SRIM/Monte Carlo.
-Professor: ${prof.name}, research: ${prof.researchFocus}
-Their recent papers:
-${list}
-Pick ONE paper (by number) most relevant for cold-emailing — should connect to ML surrogates, ion implantation, radiation effects, or computational materials.
-Reply ONLY with raw JSON (no markdown): {"index":1,"reason":"one sentence why"}`);
-  const pick = extractJSON(resp);
-  const chosen = papers[(pick.index||1)-1];
-  if(!chosen) return papers[0] ? {...papers[0], doi:papers[0].externalIds?.DOI||null, reason:"Most recent relevant paper"} : null;
-  return {...chosen, doi:chosen.externalIds?.DOI||null, reason:pick.reason};
-}
+PROFESSOR: ${prof.name}, ${prof.university} (${prof.country})
+RESEARCH: ${prof.researchFocus}
+${paper ? `PAPER READ: "${paper.title}" (${paper.year})
+ABSTRACT: ${paper.abstract?.slice(0,600)}` : ''}
 
-async function fetchProfFromURL(input) {
-  const isURL = input.startsWith("http");
-  let pageText = "";
-  if(isURL) {
-    try {
-      const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(input)}`;
-      const r = await fetch(proxy);
-      const d = await r.json();
-      pageText = (d.contents||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").slice(0,6000);
-    } catch {}
-  }
-  const prompt = isURL && pageText
-    ? `Extract professor info from this webpage text:\n${pageText}\n\nReturn ONLY raw JSON (no markdown, no backticks):\n{"name":"Prof. Full Name","university":"Full University Name","country":"Country","email":"email or empty","researchFocus":"2-3 sentence summary","profileUrl":"${input}"}`
-    : `Search your knowledge for this professor: "${input}"\n\nReturn ONLY raw JSON (no markdown, no backticks):\n{"name":"Prof. Full Name","university":"Full University Name","country":"Country","email":"email or empty","researchFocus":"2-3 sentence summary of their research","profileUrl":"their faculty page URL if known"}`;
-  const text = await callGemini(prompt);
-  return extractJSON(text);
-}
-
-async function summarizePaper(paper) {
-  return callGemini(`Summarize this academic paper for a PhD applicant cold-emailing the professor.
-
-Title: ${paper.title}
-Authors: ${paper.authors} (${paper.year})
-Abstract: ${paper.abstract}
-${paper.tldr?`TL;DR: ${paper.tldr}`:""}
-
-Respond with exactly 4 short labeled sections:
-
-CORE CONTRIBUTION: (1 sentence — what this paper does)
-KEY FINDING: (1 sentence — most interesting result)
-RELEVANCE TO ML+ION IMPLANTATION: (1-2 sentences connecting to surrogate ML models for ion implantation prediction)
-EMAIL HOOK: (1 natural, specific sentence to open a cold email — must reference something concrete from this paper, NOT generic)
-
-Total: ~5-6 sentences. Be specific, not generic.`);
-}
-
-async function generateEmail(prof, paper) {
-  return callGemini(`You are helping a PhD applicant write a cold email to a professor. Write it naturally, like a real non-native English speaker (slightly formal, genuine, NOT AI-sounding).
-
-APPLICANT:
-- Name: ${ME.name}
-- CGPA: ${ME.cgpa} from ${ME.uni}
-- Thesis: ${ME.thesis}
-- Key achievement: ${ME.speedup} speedup over SRIM/Monte Carlo simulation
-- Publications:
-${ME.pubs.map(p=>`  • ${p}`).join("\n")}
-
-TARGET PROFESSOR:
-- Name: ${prof.name}
-- University: ${prof.university} (${prof.country})
-- Research: ${prof.researchFocus}
-
-PAPER THE APPLICANT READ:
-- Title: ${paper.title} (${paper.year})
-- Abstract: ${paper.abstract}
-${paper.tldr?`- TL;DR: ${paper.tldr}`:""}
-
-STRICT INSTRUCTIONS:
-1. 200-250 words MAX
-2. Start: "Dear Prof. [lastname],"
-3. Para 1: One specific technical observation from the paper that connects to the applicant work (NOT generic praise)
-4. Para 2: Who I am — CGPA, thesis, the ${ME.speedup} speedup result (2-3 sentences)
-5. Para 3: Publications — J1 under review, ICOPS accepted (2-3 lines)
-6. Para 4: Why this specific lab/professor (1-2 sentences, be specific)
-7. Para 5: PhD Fall 2027, request brief conversation or info on openings (2 sentences)
-8. Sign off: "Best regards,\n${ME.name}"
-9. Do NOT say "I am writing to express my interest"
-10. Do NOT include subject line
-11. Occasional minor grammar imperfection is OK — feels human`);
+Rules: Start "Dear Prof. [lastname],", reference specific paper detail, 200-250 words max, ask for PhD Fall 2027, sign "Best regards, Abdullah Shadek Fahim". No "I am writing to express my interest".`;
 }
 
 /* ─── PROF CARD ─── */
@@ -319,43 +214,6 @@ function ProfCard({ prof, onClick }) {
   );
 }
 
-
-/* ─── SETTINGS MODAL ─── */
-function SettingsModal({ onClose }) {
-  const [key, setKey] = useState(localStorage.getItem("pt_gemini_key") || "");
-  const [saved, setSaved] = useState(false);
-  const save = () => {
-    localStorage.setItem("pt_gemini_key", key.trim());
-    setSaved(true); setTimeout(() => setSaved(false), 2000);
-  };
-  return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{background:"#0A1628",borderRadius:16,padding:24,width:"100%",maxWidth:400,border:"1px solid #1E3A5F"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-          <span style={{fontSize:16,fontWeight:800,color:"#E2E8F0"}}>⚙️ Settings</span>
-          <button onClick={onClose} style={{background:"none",border:"none",color:"#64748B",cursor:"pointer"}}><X size={18}/></button>
-        </div>
-        <div style={{background:"rgba(56,189,248,0.08)",border:"1px solid rgba(56,189,248,0.2)",borderRadius:10,padding:12,marginBottom:16,fontSize:12,color:"#93C5FD",lineHeight:1.7}}>
-          <strong style={{color:"#38BDF8"}}>Gemini API Key লাগবে — সম্পূর্ণ বিনামূল্যে:</strong><br/>
-          1. <a href="https://aistudio.google.com" target="_blank" style={{color:"#38BDF8"}}>aistudio.google.com</a> এ যাও<br/>
-          2. Google account দিয়ে login করো<br/>
-          3. "Get API Key" → "Create API Key"<br/>
-          4. Copy করে নিচে paste করো
-        </div>
-        <label style={{fontSize:11,color:"#64748B",display:"block",marginBottom:6,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.5px"}}>Gemini API Key</label>
-        <input
-          type="password" value={key} onChange={e=>setKey(e.target.value)}
-          placeholder="AIzaSy..."
-          style={{width:"100%",background:"#060D1A",border:"1px solid #1E3A5F",borderRadius:8,padding:"10px 12px",color:"#E2E8F0",fontSize:13,outline:"none",boxSizing:"border-box",marginBottom:12}}
-        />
-        <button onClick={save} style={{width:"100%",background:saved?"rgba(74,222,128,0.2)":"linear-gradient(135deg,#0369A1,#7C3AED)",border:saved?"1px solid #4ADE80":"none",borderRadius:10,padding:12,color:saved?"#4ADE80":"white",fontSize:14,fontWeight:800,cursor:"pointer"}}>
-          {saved ? "✓ Saved!" : "Save Key"}
-        </button>
-        <div style={{fontSize:11,color:"#475569",marginTop:10,textAlign:"center"}}>Key শুধু তোমার browser এ save থাকে। কোথাও যায় না।</div>
-      </div>
-    </div>
-  );
-}
 
 /* ─── ADD MODAL ─── */
 function AddModal({ onAdd, onClose, defaultCat }) {
@@ -496,33 +354,36 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
   };
 
   const doSuggest = async () => {
-    if(!getKey()){ alert("Gemini API key নেই! Settings থেকে set করো।"); return; }
+    // Search Semantic Scholar for recent papers by this professor (no API key needed)
     setSuggesting(true); setSuggested(null);
-    try { const s = await suggestPaper(prof); setSuggested(s); }
-    catch(e){ alert("Could not suggest paper: "+e.message); }
+    try {
+      const lastName = prof.name.split(" ").pop();
+      const r = await fetch(`https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(prof.name)}&fields=title,abstract,year,authors,externalIds&limit=10`);
+      const d = await r.json();
+      const papers = (d.data||[]).filter(p => p.authors?.some(a => a.name.toLowerCase().includes(lastName.toLowerCase())));
+      if(papers.length > 0) {
+        const p = papers[0];
+        setSuggested({...p, doi: p.externalIds?.DOI||null, reason:"Most recent paper by this professor. Read abstract + conclusion + future work before emailing."});
+      } else {
+        alert("No papers found on Semantic Scholar. Search manually: scholar.google.com → "+ prof.name);
+      }
+    } catch(e) { alert("Search failed: "+e.message); }
     setSuggesting(false);
   };
 
-  const doSummarize = async (paper) => {
-    if(!getKey()) { alert("Gemini API key নেই! Homepage এ Settings (⚙) থেকে set করো।"); return; }
-    setSumming(true); setSelPaper(paper);
-    try {
-      const s = await summarizePaper(paper);
-      setSummary(s);
-      onUpdate({papers:prof.papers.map(p=>p.id===paper.id?{...p,summary:s}:p)});
-      setTab("email");
-    } catch(e) { alert("Error: " + e.message); }
-    setSumming(false);
+  const doSummarize = (paper) => {
+    // Just select the paper and go to email tab — summarization done via Claude.ai
+    setSelPaper(paper);
+    setTab("email");
   };
 
-  const doGenEmail = async () => {
+  const doGenEmail = () => {
     const paper = selPaper || prof.papers?.[0];
-    if(!paper) { alert("Please add and select a paper first."); return; }
-    if(!getKey()) { alert("Gemini API key নেই! Homepage এ Settings (⚙) থেকে set করো।"); return; }
-    setGenning(true);
-    try { const e = await generateEmail(prof, paper); setEmail(e); }
-    catch(e) { alert("Error: " + e.message); }
-    setGenning(false);
+    const prompt = buildEmailPrompt(prof, paper);
+    navigator.clipboard.writeText(prompt);
+    setEmail(prompt);
+    alert("Prompt copied! claude.ai তে paste করো → email generate হবে। তারপর এখানে paste করে edit করো।");
+    window.open("https://claude.ai", "_blank");
   };
 
   const markSent = () => {
@@ -728,10 +589,10 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
                 <div style={{fontSize:12,lineHeight:1.7,color:"#93C5FD",whiteSpace:"pre-line"}}>{paper.summary}</div>
               </div>}
               <div style={{display:"flex",gap:7}}>
-                <button onClick={()=>doSummarize(paper)} disabled={summing}
+                <button onClick={()=>doSummarize(paper)}
                   style={{flex:1,background:"rgba(124,58,237,0.1)",border:"1px solid rgba(192,132,252,0.35)",borderRadius:8,padding:"8px 6px",color:"#C084FC",cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
-                  {summing&&selPaper?.id===paper.id?<RefreshCw size={12} style={{animation:"spin 1s linear infinite"}}/>:<Brain size={12}/>}
-                  {paper.summary?"Re-summarize":"Summarize → Email"}
+                  <Brain size={12}/>
+                  Use for Email
                 </button>
                 <button onClick={()=>{setSelPaper(paper);setSummary(paper.summary||"");setTab("email");}}
                   style={{background:"rgba(2,132,199,0.1)",border:"1px solid rgba(56,189,248,0.35)",borderRadius:8,padding:"8px 12px",color:"#38BDF8",cursor:"pointer",fontSize:12,fontWeight:600}}>
@@ -770,15 +631,15 @@ function DetailView({ prof, onBack, onUpdate, onDelete }) {
             </div>
           )}
 
-          <button onClick={doGenEmail} disabled={genning} style={{width:"100%",background:genning?"rgba(124,58,237,0.4)":"linear-gradient(135deg,#0369A1,#7C3AED)",border:"none",borderRadius:12,padding:15,color:"white",fontSize:15,fontWeight:800,cursor:"pointer",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"center",gap:9,letterSpacing:"-0.3px",opacity:genning?0.8:1}}>
-            {genning?<RefreshCw size={18} style={{animation:"spin 1s linear infinite"}}/>:<Brain size={18}/>}
-            {genning?"Generating your email...":email?"Regenerate Email":"Generate Email with Claude"}
+          <button onClick={doGenEmail} style={{width:"100%",background:"linear-gradient(135deg,#0369A1,#7C3AED)",border:"none",borderRadius:12,padding:15,color:"white",fontSize:15,fontWeight:800,cursor:"pointer",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"center",gap:9,letterSpacing:"-0.3px"}}>
+            <Brain size={18}/>
+            Copy Prompt → Open Claude.ai
           </button>
 
           {email&&<>
             <div style={{background:"#0A1628",borderRadius:12,padding:16,marginBottom:12,border:"1px solid #1E3A5F"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                <div style={{fontSize:12,fontWeight:700,color:"#CBD5E1",textTransform:"uppercase",letterSpacing:"0.5px"}}>Draft Email</div>
+                <div style={{fontSize:12,fontWeight:700,color:"#CBD5E1",textTransform:"uppercase",letterSpacing:"0.5px"}}>Email Draft (paste from Claude.ai)</div>
                 <button onClick={()=>{navigator.clipboard.writeText(email);setCopied(true);setTimeout(()=>setCopied(false),2000);}}
                   style={{background:copied?"rgba(22,163,74,0.15)":"rgba(2,132,199,0.1)",border:`1px solid ${copied?"rgba(74,222,128,0.4)":"rgba(56,189,248,0.35)"}`,borderRadius:8,padding:"6px 12px",color:copied?"#4ADE80":"#38BDF8",cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:5,transition:"all 0.2s"}}>
                   <Copy size={12}/>{copied?"Copied!":"Copy All"}
@@ -810,7 +671,6 @@ export default function ProfTracker() {
   const [catId,setCatId]     = useState(null);
   const [profId,setProfId]   = useState(null);
   const [addModal,setAddModal]= useState(false);
-  const [showSettings,setShowSettings] = useState(false);
   const [activityLog, setActivityLog] = useState(getActivityLog);
   const [search,setSearch]   = useState("");
   const [cFilter,setCFilter] = useState("All");
@@ -935,7 +795,7 @@ export default function ProfTracker() {
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           <button onClick={exportData} title="Export backup" style={{background:"rgba(255,255,255,0.04)",border:"1px solid #1E3A5F",borderRadius:8,padding:7,cursor:"pointer",display:"flex"}}><Download size={14} color="#64748B"/></button>
           <button onClick={importData} title="Import backup" style={{background:"rgba(255,255,255,0.04)",border:"1px solid #1E3A5F",borderRadius:8,padding:7,cursor:"pointer",display:"flex"}}><Upload size={14} color="#64748B"/></button>
-          <button onClick={()=>setShowSettings(true)} title="Settings / API Key" style={{background:!getKey()?"rgba(251,191,36,0.15)":"rgba(255,255,255,0.04)",border:`1px solid ${!getKey()?"#FBBF24":"#1E3A5F"}`,borderRadius:8,padding:7,cursor:"pointer",display:"flex"}}><Settings size={14} color={!getKey()?"#FBBF24":"#64748B"}/></button>
+
           <div style={{position:"relative",cursor:"pointer"}}>
             <Bell size={20} color="#64748B"/>
             {followUps.length>0&&<div style={{position:"absolute",top:-7,right:-7,background:"#DC2626",color:"white",borderRadius:"50%",width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800}}>{followUps.length}</div>}
@@ -1056,15 +916,7 @@ export default function ProfTracker() {
         <Plus color="white" size={22}/>
       </button>
       {addModal&&<AddModal onAdd={p=>{add(p);setAddModal(false);}} onClose={()=>setAddModal(false)}/>}
-      {showSettings&&<SettingsModal onClose={()=>setShowSettings(false)}/>}
-
-      {/* No API key warning */}
-      {!getKey()&&(
-        <div onClick={()=>setShowSettings(true)} style={{position:"fixed",bottom:90,right:20,background:"rgba(251,191,36,0.15)",border:"1px solid rgba(251,191,36,0.4)",borderRadius:12,padding:"10px 14px",cursor:"pointer",maxWidth:240,zIndex:50}}>
-          <div style={{fontSize:12,fontWeight:700,color:"#FBBF24",marginBottom:2}}>⚠ API Key নেই</div>
-          <div style={{fontSize:11,color:"#92400E"}}>AI features কাজ করবে না। এখানে click করে Gemini key set করো — সম্পূর্ণ free।</div>
-        </div>
-      )}
+      
     </div>
   );
 }
