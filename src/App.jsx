@@ -61,7 +61,6 @@ const STATUS = {
   interview:    { label:"⭐ Interview",   color:"#FDE68A", dot:"#F59E0B" },
   no_response:  { label:"No Response",    color:"#F87171", dot:"#DC2626" },
   bounced:      { label:"⚠ Email Bounced",color:"#FB923C", dot:"#EA580C" },
-  bounced:      { label:"⚠ Email Bounced",color:"#FB923C", dot:"#EA580C" },
 };
 
 const ME = {
