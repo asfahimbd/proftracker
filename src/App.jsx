@@ -8,6 +8,17 @@ import {
   Loader, ExternalLink
 } from "lucide-react";
 
+/* ─── RESPONSIVE HOOK ─── */
+function useIsMobile() {
+  const [w, setW] = useState(window.innerWidth);
+  useEffect(() => {
+    const h = () => setW(window.innerWidth);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+  return w < 768;
+}
+
 /* ─── SUPABASE ─── */
 const SUPABASE_URL = "https://mpdqkxbkzuopgdfkstsz.supabase.co";
 const SUPABASE_KEY = "sb_publishable_nlsp1dlPxOpaVOce2dwZvw_WWTJ4J0w";
@@ -22,12 +33,12 @@ const THEMES = {
     input:"#060D1A", dangerBg:"#110505", dangerBorder:"#5C1A1A",
     label:"Dark"
   },
-  dim: {
-    bg:"#00000", card:"#22272E", cardDark:"#1C2128",
-    border:"#373E47", text:"#ADBAC7", muted:"#545D68",
-    mutedText:"#768390", hover:"rgba(177,186,196,0.08)",
-    input:"#1C2128", dangerBg:"#2D1B1B", dangerBorder:"#5C2626",
-    label:"Dim"
+  vivid: {
+    bg:"#07001C", card:"#130040", cardDark:"#07001C",
+    border:"#35007A", text:"#EDE9FF", muted:"#6B4A96",
+    mutedText:"#A07EC8", hover:"rgba(139,92,246,0.14)",
+    input:"#07001C", dangerBg:"rgba(200,30,60,0.14)", dangerBorder:"rgba(200,30,60,0.4)",
+    label:"Vivid"
   },
   light: {
     bg:"#F0F2F5", card:"#FFFFFF", cardDark:"#F8FAFC",
@@ -37,8 +48,8 @@ const THEMES = {
     label:"Light"
   }
 };
-const THEME_CYCLE = ["dark","dim","light"];
-const THEME_ICONS = { dark:"🌑", dim:"🌗", light:"☀️" };
+const THEME_CYCLE = ["dark","vivid","light"];
+const THEME_ICONS = { dark:"🌑", vivid:"🌈", light:"☀️" };
 
 /* ─── CONSTANTS ─── */
 const CATEGORIES = [
@@ -298,6 +309,29 @@ asfahimbd@gmail.com`
   },
 };
 
+const BULK_TEMPLATE = `[
+  {
+    "name": "Prof. Firstname Lastname",
+    "university": "Full University Name",
+    "country": "USA",
+    "email": "prof@university.edu",
+    "profileUrl": "https://scholar.google.com/...",
+    "categories": ["semiconductor"],
+    "tier": 1,
+    "researchFocus": "Brief description of their main research area"
+  },
+  {
+    "name": "Prof. Another Name",
+    "university": "University Name",
+    "country": "Finland",
+    "email": "",
+    "profileUrl": "",
+    "categories": ["ml"],
+    "tier": 2,
+    "researchFocus": "Machine learning for materials simulation"
+  }
+]`;
+
 /* ─── AUTH GATE ─── */
 function AuthGate() {
   const [email,setEmail]=useState(""); const [password,setPassword]=useState("");
@@ -343,7 +377,8 @@ function ProfCard({prof,onClick,t}){
       </div>
       <div style={{fontSize:12,color:t.muted,marginBottom:10,lineHeight:1.5,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{prof.researchFocus}</div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-        {prof.categories?.slice(0,2).map(cId=>{const c=CATEGORIES.find(x=>x.id===cId);return c?<span key={cId} style={{fontSize:10,background:c.bg,color:c.color,padding:"2px 8px",borderRadius:6,border:`1px solid ${c.color}33`,fontWeight:700}}>{c.label}</span>:null;})}
+        {prof.categories?.map(cId=>{const cat=CATEGORIES.find(x=>x.id===cId);return cat?<span key={cId} style={{fontSize:10,background:cat.bg,color:cat.color,padding:"2px 8px",borderRadius:6,border:`1px solid ${cat.color}33`,fontWeight:700}}>{cat.label}</span>:null;})}
+        {prof.categories?.length>1&&<span style={{fontSize:10,color:"#FBBF24",background:"rgba(251,191,36,0.1)",padding:"2px 8px",borderRadius:6,border:"1px solid rgba(251,191,36,0.3)",fontWeight:700}}>Multi-category</span>}
       </div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -397,6 +432,10 @@ function AddModal({onAdd,onClose,defaultCat,profs,t}){
   const handleAdd=()=>{
     if(!f.name.trim()||!f.university.trim())return setFetchErr("Name and University are required.");
     if(f.categories.length===0)return setFetchErr("Please select a category.");
+    // Duplicate check by name
+    const nameDupe=profs.find(p=>p.name.trim().toLowerCase()===f.name.trim().toLowerCase());
+    if(nameDupe) return setFetchErr(`⚠ "${nameDupe.name}" is already in your tracker (${nameDupe.university}). Cannot add duplicate.`);
+    // Duplicate check by email
     if(f.email.trim()&&profs.some(p=>p.email&&p.email.toLowerCase()===f.email.toLowerCase()))
       return setFetchErr("A professor with this email already exists.");
     onAdd({...f,id:uid(),papers:[],status:"not_contacted",emailSentDate:null,followUpDate:null,scheduledDate:null,scheduledTime:"10:09",lastActivity:null});
@@ -460,7 +499,7 @@ function AddModal({onAdd,onClose,defaultCat,profs,t}){
 }
 
 /* ─── SETTINGS MODAL ─── */
-function SettingsModal({onClose,t,onDeleteAll}){
+function SettingsModal({onClose,t,onDeleteAll,onBulkImport,onDownloadTemplate}){
   const [key,setKey]   = useState(localStorage.getItem("pt_gemini_key")||"");
   const [saved,setSaved] = useState(false);
   const [ejs,setEjs]   = useState(()=>getEJSKeys());
@@ -507,7 +546,34 @@ function SettingsModal({onClose,t,onDeleteAll}){
 
         {/* Danger zone */}
         <div style={{borderTop:`1px solid ${t.border}`,paddingTop:18}}>
-          <div style={{fontSize:12,color:"#F87171",marginBottom:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.5px"}}>⚠ Danger Zone</div>
+          {/* Bulk import section */}
+        <div style={{borderTop:`1px solid ${t.border}`,paddingTop:18,marginBottom:18}}>
+          <div style={{fontSize:12,color:t.muted,marginBottom:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.5px"}}>📥 Bulk Import Professors</div>
+
+          {/* Template sticky reference */}
+          <div style={{background:t.cardDark,border:`1px solid ${t.border}`,borderRadius:10,marginBottom:12,overflow:"hidden"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 12px",borderBottom:`1px solid ${t.border}`,background:"rgba(56,189,248,0.06)"}}>
+              <span style={{fontSize:12,color:"#38BDF8",fontWeight:700}}>📋 JSON Template (reference)</span>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>{navigator.clipboard.writeText(BULK_TEMPLATE);}} style={{background:"rgba(56,189,248,0.1)",border:"1px solid rgba(56,189,248,0.3)",borderRadius:6,padding:"3px 9px",color:"#38BDF8",cursor:"pointer",fontSize:11,fontWeight:700}}>Copy</button>
+                <button onClick={onDownloadTemplate} style={{background:"rgba(74,222,128,0.1)",border:"1px solid rgba(74,222,128,0.3)",borderRadius:6,padding:"3px 9px",color:"#4ADE80",cursor:"pointer",fontSize:11,fontWeight:700}}>⬇ Download</button>
+              </div>
+            </div>
+            <pre style={{margin:0,padding:"10px 12px",fontSize:10,color:t.mutedText,lineHeight:1.6,overflowX:"auto",fontFamily:"'SF Mono',monospace",maxHeight:180,overflowY:"auto"}}>{BULK_TEMPLATE}</pre>
+          </div>
+
+          <div style={{fontSize:11,color:t.muted,marginBottom:10,lineHeight:1.6}}>
+            Valid categories: <span style={{color:"#38BDF8"}}>semiconductor · ai_biomedical · materials · ml · power_electronics · power_system · control_system · digital_electronics</span>
+          </div>
+
+          <label style={{display:"flex",alignItems:"center",gap:8,background:t.cardDark,border:`1px dashed ${t.border}`,borderRadius:9,padding:"12px 14px",cursor:"pointer"}}>
+            <Upload size={15} color={t.muted}/>
+            <span style={{fontSize:13,color:t.mutedText,fontWeight:600}}>Choose filled JSON file to import</span>
+            <input type="file" accept=".json" style={{display:"none"}} onChange={e=>{if(e.target.files?.[0])onBulkImport(e.target.files[0]);}}/>
+          </label>
+        </div>
+
+        <div style={{fontSize:12,color:"#F87171",marginBottom:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.5px"}}>⚠ Danger Zone</div>
           {!delConfirm?(
             <button onClick={()=>setDelConfirm(true)} style={{width:"100%",background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:9,padding:12,color:"#F87171",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10}}>
               🗑 Delete All Data (Reset Site)
@@ -599,12 +665,12 @@ function DetailView({prof,onBack,onUpdate,onDelete,t,session,logActivity}){
   };
 
   const markSent=()=>{
-    logActivity(prof.id,prof.name,"Email Sent",prof.university);
+    logActivity(prof.id,prof.name,"📧 Email Sent",`Cold email sent to ${prof.name} at ${prof.university}`);
     onUpdate({status:"email_sent",emailSentDate:today(),followUpDate:fuDate(fuDays),lastActivity:new Date().toISOString(),sentEmailText:email});
   };
   const markScheduled=()=>{
     if(!schedDate)return;
-    logActivity(prof.id,prof.name,"Scheduled",schedDate+" at "+schedTime);
+    logActivity(prof.id,prof.name,"📅 Email Scheduled",`Scheduled for ${schedDate} at ${schedTime} local time (${prof.university})`);
     onUpdate({status:"scheduled",scheduledDate:schedDate,scheduledTime:schedTime,lastActivity:new Date().toISOString()});
   };
 
@@ -625,7 +691,7 @@ function DetailView({prof,onBack,onUpdate,onDelete,t,session,logActivity}){
         {/* Status pills */}
         <div style={{marginTop:14,display:"flex",gap:6,flexWrap:"wrap"}}>
           {Object.entries(STATUS).map(([k,v])=>(
-            <button key={k} onClick={()=>{logActivity(prof.id,prof.name,v.label);onUpdate({status:k,lastActivity:new Date().toISOString()});}}
+            <button key={k} onClick={()=>{logActivity(prof.id,prof.name,`Status → ${v.label}`,prof.university);onUpdate({status:k,lastActivity:new Date().toISOString()});}}
               style={{padding:"5px 11px",borderRadius:20,border:`1px solid ${prof.status===k?v.dot+"99":t.border}`,background:prof.status===k?v.dot+"22":"transparent",color:prof.status===k?v.color:t.muted,cursor:"pointer",fontSize:11,fontWeight:prof.status===k?800:600,transition:"all 0.15s"}}>
               {v.label}
             </button>
@@ -842,6 +908,8 @@ export default function App(){
 function ProfTracker({session}){
   const [themeMode,setThemeMode]=useState(()=>localStorage.getItem("pt_theme")||"dark");
   const t=THEMES[themeMode];
+  const isMobile = useIsMobile();
+  const [showMobileActivity, setShowMobileActivity] = useState(false);
   const cycleTheme=()=>{
     const idx=THEME_CYCLE.indexOf(themeMode);
     const next=THEME_CYCLE[(idx+1)%THEME_CYCLE.length];
@@ -926,15 +994,57 @@ function ProfTracker({session}){
   const add=async(prof)=>{
     setProfs(p=>[...p,prof]);
     await supabase.from('prof_data').insert({id:prof.id,user_id:session.user.id,data:prof});
-    logAct(prof.id,prof.name,"Professor Added",prof.university);
+    logAct(prof.id,prof.name,"✅ Professor Added",`${prof.name} (Tier ${prof.tier}) from ${prof.university}, ${prof.country}`);
   };
   const logAct=async(profId,profName,action,detail="")=>{
+    // Deduplicate: skip if same prof+action logged within last 5 minutes
+    const fiveMinAgo = Date.now() - 5*60*1000;
+    const isDupe = activityLog.some(a =>
+      a.profId===profId && a.action===action &&
+      new Date(a.time).getTime() > fiveMinAgo
+    );
+    if(isDupe) return;
     const a={id:uid(),profId,profName,action,detail,time:new Date().toISOString()};
     setActivityLog(prev=>[a,...prev].slice(0,30));
     await supabase.from('activity_data').insert({id:a.id,user_id:session.user.id,data:a});
   };
 
   const exportData=()=>{const b=new Blob([JSON.stringify(profs,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="proftracker_backup.json";a.click();};
+
+  const downloadBulkTemplate=()=>{
+    const template=[
+      {name:"Prof. Firstname Lastname",university:"University Name",country:"USA",email:"prof@uni.edu",profileUrl:"https://scholar.google.com/...",categories:["semiconductor"],tier:1,researchFocus:"Brief description of their research area"},
+      {name:"Prof. Another Name",university:"Another University",country:"Finland",email:"",profileUrl:"",categories:["ml","materials"],tier:2,researchFocus:"ML for materials simulation"},
+    ];
+    const b=new Blob([JSON.stringify(template,null,2)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="proftracker_bulk_template.json";a.click();
+  };
+
+  const bulkImport=async(file)=>{
+    try{
+      const text=await file.text();
+      const data=JSON.parse(text);
+      const list=Array.isArray(data)?data:[data];
+      let added=0,skipped=0;
+      for(const p of list){
+        if(!p.name||!p.university){skipped++;continue;}
+        // Skip duplicates by name
+        if(profs.some(x=>x.name.toLowerCase()===p.name.toLowerCase())){skipped++;continue;}
+        const newProf={
+          id:uid(), name:p.name, university:p.university,
+          country:p.country||"USA", email:p.email||"",
+          profileUrl:p.profileUrl||"",
+          categories:Array.isArray(p.categories)&&p.categories.length?p.categories:["semiconductor"],
+          tier:p.tier||2, researchFocus:p.researchFocus||"",
+          notes:"", papers:[], status:"not_contacted",
+          emailSentDate:null,followUpDate:null,scheduledDate:null,scheduledTime:"10:09",lastActivity:null,
+        };
+        await add(newProf);
+        added++;
+      }
+      alert(`Bulk import done!\n✓ Added: ${added}\n⏩ Skipped (duplicate/invalid): ${skipped}`);
+    }catch(e){alert("Import failed: "+e.message);}
+  };
 
   const deleteAll=async()=>{
     // Delete all prof data and activity from Supabase
@@ -965,7 +1075,7 @@ function ProfTracker({session}){
       <div style={{width:"100%",maxWidth:1380,background:t.card,boxShadow:"0 0 60px rgba(0,0,0,0.2)",display:"flex",flexDirection:"column",minHeight:"100vh"}}>
 
         {/* TOP BAR */}
-        <div style={{background:t.card,padding:"14px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${t.border}`,position:"sticky",top:0,zIndex:50}}>
+        <div style={{background:themeMode==="vivid"?"linear-gradient(135deg,#4C0080,#001A6E,#006666)":t.card,padding:"14px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${t.border}`,position:"sticky",top:0,zIndex:50}}>
           <div style={{cursor:"pointer"}} onClick={()=>setView("home")}>
             <div style={{fontSize:19,fontWeight:900,letterSpacing:"-0.8px",background:"linear-gradient(135deg,#38BDF8,#C084FC)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>🎓 ProfTracker</div>
             <div style={{fontSize:11,color:t.muted,fontFamily:"'SF Mono',monospace",marginTop:1,fontWeight:600}}>PhD Outreach — Fall 2027</div>
@@ -1032,7 +1142,7 @@ function ProfTracker({session}){
         {/* MAIN LAYOUT */}
         <div style={{display:"flex",flex:1,alignItems:"flex-start"}}>
           {/* LEFT CONTENT */}
-          <div style={{flex:1,minWidth:0,paddingBottom:80}}>
+          <div style={{flex:1,minWidth:0,paddingBottom:isMobile?120:80,overflow:"hidden"}}>
 
             {/* HOME */}
             {view==="home"&&<div style={{padding:24}}>
@@ -1129,38 +1239,147 @@ function ProfTracker({session}){
               if(!prof){setView("home");return null;}
               return<DetailView prof={prof} t={t} session={session} logActivity={logAct} onBack={()=>setView(catId?"category":"home")} onUpdate={upd=>update(profId,upd)} onDelete={()=>{del(profId);setView("home");}}/>;
             })()}
+
+            {/* ACTIVITY PAGE */}
+            {view==="activity"&&(
+              <div style={{padding:24,animation:"fadeIn 0.3s ease"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:24}}>
+                  <button onClick={()=>setView("home")} style={{background:"none",border:"none",color:"#38BDF8",cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:13,fontWeight:700}}><ArrowLeft size={15}/>Back</button>
+                  <div style={{width:1,height:18,background:t.border}}/>
+                  <Clock size={16} color={t.muted}/>
+                  <span style={{fontSize:17,fontWeight:800,color:t.text}}>All Activity</span>
+                  <span style={{marginLeft:"auto",background:t.cardDark,color:t.muted,padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:700,border:`1px solid ${t.border}`}}>{activityLog.length} entries</span>
+                </div>
+                {activityLog.length===0&&<div style={{textAlign:"center",color:t.muted,padding:60,fontSize:15}}>No activity recorded yet.</div>}
+                {activityLog.map((a,i)=>(
+                  <div key={a.id} onClick={()=>{if(a.profId){setProfId(a.profId);setView("detail");}}}
+                    style={{display:"flex",gap:14,padding:"16px",background:t.card,borderRadius:12,marginBottom:10,border:`1px solid ${t.border}`,cursor:a.profId?"pointer":"default",transition:"transform 0.15s"}}
+                    onMouseEnter={e=>e.currentTarget.style.transform="translateX(4px)"}
+                    onMouseLeave={e=>e.currentTarget.style.transform="translateX(0)"}>
+                    <div style={{width:40,height:40,borderRadius:"50%",background:
+                      a.action.includes("Email Sent")?"rgba(2,132,199,0.2)":
+                      a.action.includes("Replied")||a.action.includes("Interview")?"rgba(22,163,74,0.2)":
+                      a.action.includes("Added")?"rgba(124,58,237,0.2)":
+                      a.action.includes("Scheduled")?"rgba(251,191,36,0.2)":
+                      "rgba(71,85,105,0.15)",
+                      display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      {a.action.includes("Email Sent")?<Mail size={16} color="#38BDF8"/>:
+                       a.action.includes("Replied")||a.action.includes("Interview")?<CheckCircle size={16} color="#4ADE80"/>:
+                       a.action.includes("Added")?<Plus size={16} color="#C084FC"/>:
+                       a.action.includes("Scheduled")?<Calendar size={16} color="#FBBF24"/>:
+                       <Clock size={16} color={t.muted}/>}
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                        <div style={{fontSize:15,fontWeight:800,color:t.text}}>{a.profName}</div>
+                        <div style={{fontSize:11,color:t.muted,fontFamily:"'SF Mono',monospace",flexShrink:0,marginLeft:10}}>{timeAgo(a.time)}</div>
+                      </div>
+                      <div style={{fontSize:13,color:t.mutedText,lineHeight:1.5}}>{a.action}</div>
+                      {a.detail&&<div style={{fontSize:12,color:t.muted,marginTop:3,lineHeight:1.5}}>{a.detail}</div>}
+                      <div style={{fontSize:11,color:t.muted,marginTop:4,fontFamily:"'SF Mono',monospace"}}>{new Date(a.time).toLocaleString()}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* RIGHT SIDEBAR — RECENT ACTIVITY */}
-          <div style={{width:320,flexShrink:0,position:"sticky",top:56,height:"calc(100vh - 56px)",borderLeft:`1px solid ${t.border}`,background:t.cardDark,overflowY:"auto",padding:"20px 16px"}}>
+          {/* RIGHT SIDEBAR — RECENT ACTIVITY (desktop only) */}
+          {!isMobile && (
+          <div style={{width:300,flexShrink:0,position:"sticky",top:56,height:"calc(100vh - 56px)",borderLeft:`1px solid ${t.border}`,background:t.cardDark,overflowY:"auto",padding:"20px 16px"}}>
             <div style={{fontSize:11,color:t.muted,fontWeight:800,letterSpacing:"1px",textTransform:"uppercase",marginBottom:18,display:"flex",alignItems:"center",gap:7}}>
               <Clock size={13}/> Recent Activity
             </div>
-            {activityLog.length===0&&<div style={{textAlign:"center",color:t.muted,fontSize:13,padding:"24px 0",lineHeight:1.6}}>No activity yet.<br/>Add a professor or update a status.</div>}
-            {activityLog.map(a=>(
+            {activityLog.length===0&&<div style={{textAlign:"center",color:t.muted,fontSize:13,padding:"24px 0",lineHeight:1.6}}>No activity yet.</div>}
+            {activityLog.slice(0,20).map(a=>(
               <div key={a.id} onClick={()=>{if(a.profId){setProfId(a.profId);setView("detail");}}}
                 style={{display:"flex",alignItems:"flex-start",gap:10,padding:"12px 10px",borderBottom:`1px solid ${t.border}`,cursor:a.profId?"pointer":"default",borderRadius:8,transition:"background 0.15s"}}
                 onMouseEnter={e=>e.currentTarget.style.background=t.hover}
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                <div style={{width:30,height:30,borderRadius:"50%",background:a.action.includes("Sent")?"rgba(2,132,199,0.15)":a.action.includes("Replied")||a.action.includes("Interview")?"rgba(22,163,74,0.15)":a.action.includes("Added")?"rgba(124,58,237,0.15)":"rgba(71,85,105,0.15)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}>
-                  {a.action.includes("Sent")?<Mail size={13} color="#38BDF8"/>:a.action.includes("Replied")||a.action.includes("Interview")?<CheckCircle size={13} color="#4ADE80"/>:a.action.includes("Added")?<Plus size={13} color="#C084FC"/>:<Clock size={13} color={t.muted}/>}
+                <div style={{width:32,height:32,borderRadius:"50%",background:
+                  a.action.includes("Email Sent")?"rgba(2,132,199,0.2)":
+                  a.action.includes("Replied")||a.action.includes("Interview")?"rgba(22,163,74,0.2)":
+                  a.action.includes("Added")?"rgba(124,58,237,0.2)":
+                  a.action.includes("Scheduled")?"rgba(251,191,36,0.15)":
+                  "rgba(71,85,105,0.15)",
+                  display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}>
+                  {a.action.includes("Email Sent")?<Mail size={13} color="#38BDF8"/>:
+                   a.action.includes("Replied")||a.action.includes("Interview")?<CheckCircle size={13} color="#4ADE80"/>:
+                   a.action.includes("Added")?<Plus size={13} color="#C084FC"/>:
+                   a.action.includes("Scheduled")?<Calendar size={13} color="#FBBF24"/>:
+                   <Clock size={13} color={t.muted}/>}
                 </div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:13,fontWeight:700,color:t.text,lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.profName}</div>
-                  <div style={{fontSize:12,color:t.mutedText,marginTop:3}}>{a.action}{a.detail?" · "+a.detail:""}</div>
-                  <div style={{fontSize:10,color:t.muted,fontFamily:"'SF Mono',monospace",marginTop:5,fontWeight:600}}>{timeAgo(a.time)}</div>
+                  <div style={{fontSize:12,color:t.mutedText,marginTop:3,lineHeight:1.5}}>{a.action}</div>
+                  {a.detail&&<div style={{fontSize:11,color:t.muted,marginTop:2,lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.detail}</div>}
+                  <div style={{fontSize:10,color:t.muted,fontFamily:"'SF Mono',monospace",marginTop:4,fontWeight:600}}>{timeAgo(a.time)}</div>
                 </div>
               </div>
             ))}
+            {activityLog.length>20&&(
+              <button onClick={()=>setView("activity")} style={{width:"100%",background:"none",border:`1px solid ${t.border}`,borderRadius:9,padding:"10px",color:"#38BDF8",cursor:"pointer",fontSize:12,fontWeight:700,marginTop:10,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+                View All {activityLog.length} Activities →
+              </button>
+            )}
           </div>
+          )}
         </div>
 
+        {/* MOBILE ACTIVITY BOTTOM SHEET */}
+        {isMobile && showMobileActivity && (
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:200}} onClick={()=>setShowMobileActivity(false)}>
+            <div style={{position:"absolute",bottom:0,left:0,right:0,background:t.card,borderRadius:"20px 20px 0 0",padding:"20px 16px",maxHeight:"70vh",overflowY:"auto",border:`1px solid ${t.border}`}} onClick={e=>e.stopPropagation()}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                <span style={{fontSize:14,fontWeight:800,color:t.text,display:"flex",alignItems:"center",gap:6}}><Clock size={15}/>Recent Activity</span>
+                <button onClick={()=>setShowMobileActivity(false)} style={{background:"none",border:"none",color:t.muted,cursor:"pointer"}}><X size={18}/></button>
+              </div>
+              {activityLog.length===0&&<div style={{textAlign:"center",color:t.muted,fontSize:13,padding:"20px 0"}}>No activity yet.</div>}
+              {activityLog.slice(0,20).map(a=>(
+                <div key={a.id} onClick={()=>{if(a.profId){setProfId(a.profId);setView("detail");setShowMobileActivity(false);}}}
+                  style={{display:"flex",alignItems:"flex-start",gap:10,padding:"12px 0",borderBottom:`1px solid ${t.border}`,cursor:"pointer"}}>
+                  <div style={{width:32,height:32,borderRadius:"50%",background:a.action.includes("Email Sent")?"rgba(2,132,199,0.2)":a.action.includes("Added")?"rgba(124,58,237,0.2)":"rgba(71,85,105,0.15)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    {a.action.includes("Email Sent")?<Mail size={13} color="#38BDF8"/>:a.action.includes("Added")?<Plus size={13} color="#C084FC"/>:<Clock size={13} color={t.muted}/>}
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:14,fontWeight:700,color:t.text}}>{a.profName}</div>
+                    <div style={{fontSize:13,color:t.mutedText,marginTop:2}}>{a.action}</div>
+                    {a.detail&&<div style={{fontSize:12,color:t.muted,marginTop:1}}>{a.detail}</div>}
+                    <div style={{fontSize:11,color:t.muted,marginTop:3,fontFamily:"'SF Mono',monospace"}}>{timeAgo(a.time)}</div>
+                  </div>
+                </div>
+              ))}
+              {activityLog.length>20&&<button onClick={()=>{setShowMobileActivity(false);setView("activity");}} style={{width:"100%",background:"none",border:`1px solid ${t.border}`,borderRadius:9,padding:10,color:"#38BDF8",cursor:"pointer",fontSize:13,fontWeight:700,marginTop:10}}>View All {activityLog.length} →</button>}
+            </div>
+          </div>
+        )}
+
         {/* FAB */}
-        <button onClick={()=>setAddModal(true)} style={{position:"fixed",bottom:28,right:340,background:"linear-gradient(135deg,#0369A1,#7C3AED)",border:"none",borderRadius:"50%",width:58,height:58,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxShadow:"0 6px 28px rgba(124,58,237,0.45)",zIndex:100}}>
+        {/* FAB — right:340 on desktop (next to sidebar), right:24 on mobile */}
+        <button onClick={()=>setAddModal(true)} style={{position:"fixed",bottom:28,right:isMobile?24:340,background:"linear-gradient(135deg,#0369A1,#7C3AED)",border:"none",borderRadius:"50%",width:58,height:58,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxShadow:"0 6px 28px rgba(124,58,237,0.45)",zIndex:100}}>
           <Plus color="white" size={24}/>
         </button>
+        {/* Mobile bottom nav bar */}
+        {isMobile && (
+          <div style={{position:"fixed",bottom:0,left:0,right:0,background:t.card,borderTop:`1px solid ${t.border}`,display:"flex",zIndex:90,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
+            {[
+              {icon:Users,label:"Home",action:()=>setView("home"),active:view==="home"},
+              {icon:Clock,label:"Activity",action:()=>setShowMobileActivity(true),active:view==="activity",badge:0},
+              {icon:Bell,label:"Alerts",action:()=>setShowNotif(v=>!v),active:false,badge:followUps.length},
+              {icon:Settings,label:"Settings",action:()=>setShowSettings(true),active:false},
+            ].map(({icon:Icon,label,action,active,badge})=>(
+              <button key={label} onClick={action} style={{flex:1,padding:"10px 4px 8px",background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,position:"relative"}}>
+                <div style={{position:"relative"}}>
+                  <Icon size={20} color={active?"#38BDF8":t.muted}/>
+                  {badge>0&&<div style={{position:"absolute",top:-5,right:-5,background:"#DC2626",color:"white",borderRadius:"50%",width:14,height:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:800}}>{badge}</div>}
+                </div>
+                <span style={{fontSize:9,color:active?"#38BDF8":t.muted,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.4px"}}>{label}</span>
+              </button>
+            ))}
+          </div>
+        )}
         {addModal&&<AddModal t={t} profs={profs} defaultCat={catId} onAdd={p=>{add(p);setAddModal(false);}} onClose={()=>setAddModal(false)}/>}
-        {showSettings&&<SettingsModal t={t} onClose={()=>setShowSettings(false)} onDeleteAll={deleteAll}/>}
+        {showSettings&&<SettingsModal t={t} onClose={()=>setShowSettings(false)} onDeleteAll={deleteAll} onBulkImport={bulkImport} onDownloadTemplate={downloadBulkTemplate}/>}
       </div>
     </div>
   );
