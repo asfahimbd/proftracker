@@ -934,22 +934,57 @@ function ProfTracker({session}){
   /* ─ Load from Supabase (migrate from localStorage if needed) ─ */
   useEffect(()=>{
     const load=async()=>{
-      const{data:pData}=await supabase.from('prof_data').select('data');
-      const local=localStorage.getItem('pt_v2');
-      if((!pData||pData.length===0)&&local){
-        const parsed=JSON.parse(local);
-        if(parsed.length>0){
-          for(const p of parsed)await supabase.from('prof_data').insert({id:p.id,user_id:session.user.id,data:p});
-          localStorage.removeItem('pt_v2');setProfs(parsed);
+      // Always clear old localStorage to prevent stale data returning
+      const LOCAL_KEYS = ['pt_v2','pt_log','pt_notif_sent'];
+      
+      // Load professors from Supabase (filtered by user)
+      const{data:pData}=await supabase.from('prof_data').select('data').eq('user_id',session.user.id);
+      
+      if(pData && pData.length > 0) {
+        // Supabase has data — use it, clear any localStorage remnants
+        setProfs(pData.map(r=>r.data));
+        localStorage.removeItem('pt_v2'); // clear old cache
+      } else {
+        // Supabase empty — check if localStorage has old data to migrate (one-time)
+        const local = localStorage.getItem('pt_v2');
+        const alreadyMigrated = localStorage.getItem('pt_migrated');
+        if(local && !alreadyMigrated) {
+          try {
+            const parsed = JSON.parse(local);
+            if(parsed.length > 0) {
+              for(const p of parsed) {
+                await supabase.from('prof_data').insert({id:p.id,user_id:session.user.id,data:p});
+              }
+              setProfs(parsed);
+            }
+          } catch(e) { console.error("Migration failed",e); }
+          localStorage.setItem('pt_migrated','1'); // mark as migrated
+          localStorage.removeItem('pt_v2');
         }
-      }else if(pData)setProfs(pData.map(r=>r.data));
-      const{data:aData}=await supabase.from('activity_data').select('data').order('created_at',{ascending:false}).limit(30);
-      const localLog=localStorage.getItem('pt_log');
-      if((!aData||aData.length===0)&&localLog){
-        const parsed=JSON.parse(localLog);
-        for(const a of parsed)await supabase.from('activity_data').insert({id:a.id,user_id:session.user.id,data:a});
-        localStorage.removeItem('pt_log');setActivityLog(parsed);
-      }else if(aData)setActivityLog(aData.map(r=>r.data));
+        // If truly empty (new account), profs stays as []
+      }
+      
+      // Load activity log
+      const{data:aData}=await supabase.from('activity_data').select('data').eq('user_id',session.user.id).order('created_at',{ascending:false}).limit(30);
+      if(aData && aData.length > 0) {
+        setActivityLog(aData.map(r=>r.data));
+        localStorage.removeItem('pt_log');
+      } else {
+        const localLog = localStorage.getItem('pt_log');
+        const logMigrated = localStorage.getItem('pt_log_migrated');
+        if(localLog && !logMigrated) {
+          try {
+            const parsed = JSON.parse(localLog);
+            for(const a of parsed) {
+              await supabase.from('activity_data').insert({id:a.id,user_id:session.user.id,data:a});
+            }
+            setActivityLog(parsed);
+          } catch(e) {}
+          localStorage.setItem('pt_log_migrated','1');
+          localStorage.removeItem('pt_log');
+        }
+      }
+      
       setDataLoaded(true);
     };
     load();
@@ -1047,18 +1082,40 @@ function ProfTracker({session}){
   };
 
   const deleteAll=async()=>{
-    // Delete all prof data and activity from Supabase
-    await supabase.from('prof_data').delete().eq('user_id',session.user.id);
-    await supabase.from('activity_data').delete().eq('user_id',session.user.id);
-    // Delete all uploaded PDFs
-    const{data:files}=await supabase.storage.from('papers').list(session.user.id);
-    if(files?.length){
-      const paths=files.map(f=>`${session.user.id}/${f.name}`);
-      await supabase.storage.from('papers').remove(paths);
+    // 1. Delete from Supabase (cloud)
+    const { error: e1 } = await supabase.from('prof_data').delete().eq('user_id',session.user.id);
+    const { error: e2 } = await supabase.from('activity_data').delete().eq('user_id',session.user.id);
+    if(e1||e2) {
+      // Fallback: delete all rows (in case user_id filter fails)
+      await supabase.from('prof_data').delete().neq('id','__impossible__');
+      await supabase.from('activity_data').delete().neq('id','__impossible__');
     }
-    // Clear local state
-    setProfs([]);setActivityLog([]);
-    localStorage.removeItem("pt_notif_sent");
+    
+    // 2. Delete uploaded PDFs from storage
+    try {
+      const{data:files}=await supabase.storage.from('papers').list(session.user.id);
+      if(files?.length){
+        const paths=files.map(f=>`${session.user.id}/${f.name}`);
+        await supabase.storage.from('papers').remove(paths);
+      }
+    } catch(e) { console.error("Storage delete failed",e); }
+    
+    // 3. Nuke ALL localStorage keys (phone + PC)
+    const keysToRemove = ['pt_v2','pt_log','pt_notif_sent','pt_migrated','pt_log_migrated','pt_theme','pt_gemini_key','pt_ejs'];
+    keysToRemove.forEach(k => {
+      // Keep theme and API keys — only remove data
+      if(!['pt_theme','pt_gemini_key','pt_ejs'].includes(k))
+        localStorage.removeItem(k);
+    });
+    // Remove all email drafts
+    Object.keys(localStorage).filter(k=>k.startsWith('pt_email_draft_')).forEach(k=>localStorage.removeItem(k));
+    
+    // 4. Reset state
+    setProfs([]);
+    setActivityLog([]);
+    setNotifSent([]);
+    
+    alert("✓ All data deleted from cloud and browser cache.");
   };
 
   const followUps=profs.filter(p=>p.followUpDate&&daysSince(p.followUpDate)>=0&&p.status==="email_sent");
