@@ -98,29 +98,151 @@ const FLAGS = {
 const COUNTRIES = [...Object.keys(FLAGS), "Other"];
 
 const COUNTRY_TZ = {
-  'USA':'America/New_York','Finland':'Europe/Helsinki','Switzerland':'Europe/Zurich',
-  'UK':'Europe/London','Germany':'Europe/Berlin','Sweden':'Europe/Stockholm',
-  'France':'Europe/Paris','Luxembourg':'Europe/Luxembourg','Netherlands':'Europe/Amsterdam',
-  'Canada':'America/Toronto','Japan':'Asia/Tokyo','Denmark':'Europe/Copenhagen',
-  'Belgium':'Europe/Brussels','Australia':'Australia/Sydney','Singapore':'Asia/Singapore',
-  'Norway':'Europe/Oslo','Austria':'Europe/Vienna','Ireland':'Europe/Dublin',
+  'USA':'America/New_York',       // default — overridden by university below
+  'Finland':'Europe/Helsinki',
+  'Switzerland':'Europe/Zurich',
+  'UK':'Europe/London',
+  'Germany':'Europe/Berlin',
+  'Sweden':'Europe/Stockholm',
+  'France':'Europe/Paris',
+  'Luxembourg':'Europe/Luxembourg',
+  'Netherlands':'Europe/Amsterdam',
+  'Canada':'America/Toronto',     // default — overridden by university below
+  'Japan':'Asia/Tokyo',
+  'Denmark':'Europe/Copenhagen',
+  'Belgium':'Europe/Brussels',
+  'Australia':'Australia/Sydney',
+  'Singapore':'Asia/Singapore',
+  'Norway':'Europe/Oslo',
+  'Austria':'Europe/Vienna',
+  'Ireland':'Europe/Dublin',
+  'South Korea':'Asia/Seoul',
+  'China':'Asia/Shanghai',
+  'India':'Asia/Kolkata',
+  'Israel':'Asia/Jerusalem',
+  'New Zealand':'Pacific/Auckland',
+  'Poland':'Europe/Warsaw',
+  'Czechia':'Europe/Prague',
+  'Portugal':'Europe/Lisbon',
+  'Italy':'Europe/Rome',
+  'Spain':'Europe/Madrid',
 };
 const BD_TZ = 'Asia/Dhaka';
+
+// University keyword → timezone (for USA/Canada where country default is wrong)
+const UNI_TZ = {
+  // ── USA EASTERN (UTC-5/-4) ──────────────────────────────────────────────
+  'MIT':'America/New_York', 'Harvard':'America/New_York',
+  'Princeton':'America/New_York', 'Penn State':'America/New_York',
+  'Penn ':'America/New_York', 'Columbia':'America/New_York',
+  'Cornell':'America/New_York', 'Yale':'America/New_York',
+  'Duke':'America/New_York', 'Georgia Tech':'America/New_York',
+  'Georgia ':'America/New_York', 'Florida':'America/New_York',
+  'North Carolina':'America/New_York', 'Virginia':'America/New_York',
+  'Tennessee':'America/New_York', 'UTK':'America/New_York',
+  'ORNL':'America/New_York', 'Vanderbilt':'America/New_York',
+  'Ohio State':'America/New_York', 'Ohio ':'America/New_York',
+  'Michigan':'America/New_York', 'Purdue':'America/New_York',
+  'Indiana ':'America/New_York', 'Pittsburgh':'America/New_York',
+  'Carnegie':'America/New_York', 'CMU':'America/New_York',
+  'RPI':'America/New_York', 'Rochester':'America/New_York',
+  'Boston':'America/New_York', 'Northeastern':'America/New_York',
+  'Brown':'America/New_York', 'Dartmouth':'America/New_York',
+  'Maryland':'America/New_York', 'Johns Hopkins':'America/New_York',
+  'GWU':'America/New_York', 'Georgetown':'America/New_York',
+  'Drexel':'America/New_York', 'Temple':'America/New_York',
+  // ── USA CENTRAL (UTC-6/-5) ──────────────────────────────────────────────
+  'UW-Madison':'America/Chicago', 'Wisconsin':'America/Chicago',
+  'Minnesota':'America/Chicago', 'Iowa':'America/Chicago',
+  'Illinois':'America/Chicago', 'UIUC':'America/Chicago',
+  'Northwestern':'America/Chicago', 'Chicago':'America/Chicago',
+  'Texas A&M':'America/Chicago', 'UT Austin':'America/Chicago',
+  'Texas ':'America/Chicago', 'Rice':'America/Chicago',
+  'Tulane':'America/Chicago', 'Kansas':'America/Chicago',
+  'Missouri':'America/Chicago', 'Nebraska':'America/Chicago',
+  'Oklahoma':'America/Chicago', 'Arkansas':'America/Chicago',
+  'Louisiana':'America/Chicago', 'Tulsa':'America/Chicago',
+  // ── USA MOUNTAIN (UTC-7/-6) ─────────────────────────────────────────────
+  'Colorado':'America/Denver', 'Mines':'America/Denver',
+  'Utah':'America/Denver', 'BYU':'America/Denver',
+  'Wyoming':'America/Denver', 'New Mexico':'America/Denver',
+  'Boise':'America/Denver', 'Montana':'America/Denver',
+  'Idaho':'America/Denver',
+  // ── USA PACIFIC (UTC-8/-7) ──────────────────────────────────────────────
+  'Berkeley':'America/Los_Angeles', 'Stanford':'America/Los_Angeles',
+  'UCLA':'America/Los_Angeles', 'UCSD':'America/Los_Angeles',
+  'UC Irvine':'America/Los_Angeles', 'UC Santa':'America/Los_Angeles',
+  'USC':'America/Los_Angeles', 'Caltech':'America/Los_Angeles',
+  'Oregon':'America/Los_Angeles', 'UW Seattle':'America/Los_Angeles',
+  'Washington ':'America/Los_Angeles', 'Nevada':'America/Los_Angeles',
+  'Arizona ':'America/Los_Angeles', 'ASU':'America/Los_Angeles',
+  'San Diego':'America/Los_Angeles', 'San Francisco':'America/Los_Angeles',
+  'Davis':'America/Los_Angeles', 'Santa Barbara':'America/Los_Angeles',
+  'Riverside':'America/Los_Angeles', 'UCSB':'America/Los_Angeles',
+  'Hawaii':'Pacific/Honolulu',
+  // ── CANADA ─────────────────────────────────────────────────────────────
+  'Toronto':'America/Toronto', 'Waterloo':'America/Toronto',
+  'McMaster':'America/Toronto', 'Queens':'America/Toronto',
+  'Ottawa':'America/Toronto', 'McGill':'America/Toronto',
+  'Montreal':'America/Toronto', 'Concordia':'America/Toronto',
+  'Calgary':'America/Edmonton', 'Alberta':'America/Edmonton',
+  'Edmonton':'America/Edmonton', 'Saskatchewan':'America/Regina',
+  'Manitoba':'America/Winnipeg',
+  'UBC':'America/Vancouver', 'Vancouver':'America/Vancouver',
+  'Victoria':'America/Vancouver', 'Simon Fraser':'America/Vancouver',
+  // ── AUSTRALIA ───────────────────────────────────────────────────────────
+  'Melbourne':'Australia/Melbourne', 'Monash':'Australia/Melbourne',
+  'RMIT':'Australia/Melbourne', 'Deakin':'Australia/Melbourne',
+  'Sydney':'Australia/Sydney', 'UNSW':'Australia/Sydney',
+  'Macquarie':'Australia/Sydney', 'Wollongong':'Australia/Sydney',
+  'ANU':'Australia/Sydney', 'Canberra':'Australia/Sydney',
+  'Queensland':'Australia/Brisbane', 'QUT':'Australia/Brisbane',
+  'Griffith':'Australia/Brisbane', 'JCU':'Australia/Brisbane',
+  'Adelaide':'Australia/Adelaide', 'Flinders':'Australia/Adelaide',
+  'Perth':'Australia/Perth', 'Curtin':'Australia/Perth',
+  'UWA':'Australia/Perth', 'Murdoch':'Australia/Perth',
+};
+
+// Get the most accurate timezone for a professor
+function getProfTZ(prof) {
+  const uni = prof.university || "";
+  const country = prof.country || "USA";
+  const override = prof.customTZ;  // manual override from user
+  if(override) return override;
+  // Try university keyword match first
+  for(const [keyword, tz] of Object.entries(UNI_TZ)) {
+    if(uni.toLowerCase().includes(keyword.toLowerCase())) return tz;
+  }
+  // Fall back to country default
+  return COUNTRY_TZ[country] || 'America/New_York';
+}
 
 const getTzOffsetMin = (tz, date=new Date()) => {
   const utc=new Date(date.toLocaleString('en-US',{timeZone:'UTC'}));
   const local=new Date(date.toLocaleString('en-US',{timeZone:tz}));
   return (local-utc)/60000;
 };
-const getScheduleInfo = (country, dateStr) => {
-  const tz=COUNTRY_TZ[country]||'America/New_York';
+const getScheduleInfo = (tz, dateStr) => {
+  // tz is now the actual timezone string, not country name
   const ref=dateStr?new Date(dateStr+'T12:00:00'):new Date();
   const profOff=getTzOffsetMin(tz,ref), bdOff=getTzOffsetMin(BD_TZ,ref);
   const diffMin=bdOff-profOff, profMin=10*60+17;
   const bdMin=((profMin+diffMin)%1440+1440)%1440;
   const bdH=String(Math.floor(bdMin/60)).padStart(2,'0'), bdM=String(bdMin%60).padStart(2,'0');
-  return {profTime:'10:17',tz,bdTime:`${bdH}:${bdM}`,tzLabel:tz.split('/').pop().replace('_',' ')};
+  const city=tz.split('/').pop().replace(/_/g,' ');
+  return {profTime:'10:17',tz,bdTime:`${bdH}:${bdM}`,tzLabel:city};
 };
+
+// Convert schedTime from prof timezone to BD time
+function profTimeToBD(schedTime, profTZ, dateStr) {
+  const [h,m] = schedTime.split(':').map(Number);
+  const ref = new Date((dateStr||today())+'T12:00:00');
+  const profOff = getTzOffsetMin(profTZ, ref);
+  const bdOff   = getTzOffsetMin(BD_TZ, ref);
+  const diff    = bdOff - profOff;
+  const bdMin   = ((h*60+m+diff)%1440+1440)%1440;
+  return String(Math.floor(bdMin/60)).padStart(2,'0')+':'+String(bdMin%60).padStart(2,'0');
+}
 
 /* ─── UTILS ─── */
 const daysSince = d => d?Math.floor((Date.now()-new Date(d))/86400000):null;
@@ -700,9 +822,16 @@ function DetailView({prof,onBack,onUpdate,onDelete,t,session,logActivity}){
         {dark&&<div style={{marginTop:12,background:"rgba(220,38,38,0.1)",border:"1px solid rgba(220,38,38,0.3)",borderRadius:9,padding:"10px 14px",fontSize:13,color:"#FCA5A5",fontWeight:600}}>
           ⚠ {ds} days since email — no reply. Consider a follow-up or update status.
         </div>}
-        {prof.status==="scheduled"&&prof.scheduledDate&&<div style={{marginTop:10,background:"rgba(124,58,237,0.1)",border:"1px solid rgba(124,58,237,0.3)",borderRadius:9,padding:"10px 14px",fontSize:13,color:"#C084FC",fontWeight:600}}>
-          📅 {prof.scheduledDate} · {prof.scheduledTime} {(COUNTRY_TZ[prof.country]||'America/New_York').split('/').pop().replace('_',' ')} time
-        </div>}
+        {prof.status==="scheduled"&&prof.scheduledDate&&(()=>{
+          const profTZ=getProfTZ(prof);
+          const city=profTZ.split('/').pop().replace(/_/g,' ');
+          const bdT=profTimeToBD(prof.scheduledTime||"10:09",profTZ,prof.scheduledDate);
+          return(
+            <div style={{marginTop:10,background:"rgba(124,58,237,0.1)",border:"1px solid rgba(124,58,237,0.3)",borderRadius:9,padding:"10px 14px",fontSize:13,color:"#C084FC",fontWeight:600}}>
+              📅 {prof.scheduledDate} · <strong>{prof.scheduledTime}</strong> {city} time = <strong style={{color:t.text}}>{bdT}</strong> BD time
+            </div>
+          );
+        })()}
       </div>
       {/* Tabs */}
       <div style={{display:"flex",borderBottom:`1px solid ${t.border}`,background:t.cardDark,position:"sticky",top:0,zIndex:10}}>
@@ -725,23 +854,64 @@ function DetailView({prof,onBack,onUpdate,onDelete,t,session,logActivity}){
               <input type="time" value={schedTime} onChange={e=>setSchedTime(e.target.value)} style={{...inp,width:88}}/>
             </div>
             {schedDate&&(()=>{
-              const info=getScheduleInfo(prof.country,schedDate);
-              const[h,m]=schedTime.split(':').map(Number);
-              const ref=new Date(schedDate+'T12:00:00');
-              const diff=getTzOffsetMin(BD_TZ,ref)-getTzOffsetMin(COUNTRY_TZ[prof.country]||'America/New_York',ref);
-              const bdMin=((h*60+m+diff)%1440+1440)%1440;
-              const bdT=String(Math.floor(bdMin/60)).padStart(2,'0')+':'+String(bdMin%60).padStart(2,'0');
+              const profTZ=getProfTZ(prof);
+              const city=profTZ.split('/').pop().replace(/_/g,' ');
+              const bdT=profTimeToBD(schedTime,profTZ,schedDate);
               return(<div style={{background:"rgba(56,189,248,0.07)",border:"1px solid rgba(56,189,248,0.2)",borderRadius:8,padding:"10px 13px",marginBottom:10}}>
-                <div style={{fontSize:13,color:"#38BDF8",fontWeight:800}}>{schedTime} {info.tzLabel} = <span style={{color:t.text}}>{bdT}</span> Bangladesh time</div>
+                <div style={{fontSize:13,color:"#38BDF8",fontWeight:800}}>{schedTime} {city} time = <span style={{color:t.text}}>{bdT}</span> Bangladesh time</div>
+                <div style={{fontSize:11,color:t.muted,marginTop:2}}>{profTZ}</div>
               </div>);
             })()}
-            <button onClick={()=>{if(schedDate){const i=getScheduleInfo(prof.country,schedDate);setSchedTime(i.profTime);}}} style={{width:"100%",background:t.hover,border:`1px solid ${t.border}`,borderRadius:8,padding:9,color:t.mutedText,cursor:"pointer",fontSize:12,fontWeight:600,marginBottom:8}}>
-              ⚡ Set to 10:17 AM {prof.country} time {schedDate?(()=>{const i=getScheduleInfo(prof.country,schedDate);return`(= ${i.bdTime} BD)`;})():""}
+            <button onClick={()=>{if(schedDate){setSchedTime("10:17");}}} style={{width:"100%",background:t.hover,border:`1px solid ${t.border}`,borderRadius:8,padding:9,color:t.mutedText,cursor:"pointer",fontSize:12,fontWeight:600,marginBottom:8}}>
+              {(()=>{const profTZ=getProfTZ(prof);const city=profTZ.split('/').pop().replace(/_/g,' ');const bdT=schedDate?profTimeToBD("10:17",profTZ,schedDate):"?";return `⚡ Set to 10:17 AM ${city} time${schedDate?" (= "+bdT+" BD)":""}`;})()}
             </button>
             <button onClick={markScheduled} style={{width:"100%",background:"rgba(124,58,237,0.1)",border:"1px solid rgba(124,58,237,0.4)",borderRadius:9,padding:12,color:"#C084FC",cursor:"pointer",fontSize:14,fontWeight:700}}>
               <Calendar size={14} style={{marginRight:6,verticalAlign:"middle"}}/>Mark as Scheduled
             </button>
           </div>
+          {/* Timezone override */}
+          <div style={{background:t.card,borderRadius:13,padding:16,marginBottom:14,border:`1px solid ${t.border}`}}>
+            <div style={{fontSize:11,color:t.muted,marginBottom:8,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.8px"}}>🌍 Professor Timezone</div>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <div style={{flex:1,fontSize:13,color:"#38BDF8",fontWeight:700,background:"rgba(56,189,248,0.07)",borderRadius:7,padding:"8px 12px"}}>
+                Auto-detected: <strong>{getProfTZ(prof)}</strong>
+              </div>
+              <select
+                value={prof.customTZ||""}
+                onChange={e=>onUpdate({customTZ:e.target.value||null})}
+                style={{background:t.input,border:`1px solid ${t.border}`,borderRadius:8,padding:"8px 10px",color:t.text,fontSize:12,outline:"none"}}>
+                <option value="">Auto-detect</option>
+                <optgroup label="USA">
+                  <option value="America/New_York">Eastern (NY, Boston, Miami)</option>
+                  <option value="America/Chicago">Central (Chicago, Texas, Madison)</option>
+                  <option value="America/Denver">Mountain (Colorado, Utah)</option>
+                  <option value="America/Los_Angeles">Pacific (LA, SF, Seattle)</option>
+                  <option value="Pacific/Honolulu">Hawaii</option>
+                </optgroup>
+                <optgroup label="Canada">
+                  <option value="America/Toronto">Eastern Canada</option>
+                  <option value="America/Winnipeg">Central Canada</option>
+                  <option value="America/Edmonton">Mountain Canada</option>
+                  <option value="America/Vancouver">Pacific Canada</option>
+                </optgroup>
+                <optgroup label="Europe">
+                  <option value="Europe/London">UK / Ireland</option>
+                  <option value="Europe/Paris">Central Europe (FR, DE, CH, NL, BE)</option>
+                  <option value="Europe/Helsinki">Eastern Europe (FI, EE)</option>
+                  <option value="Europe/Stockholm">Nordic (SE, DK, NO)</option>
+                </optgroup>
+                <optgroup label="Asia / Pacific">
+                  <option value="Asia/Tokyo">Japan</option>
+                  <option value="Asia/Singapore">Singapore</option>
+                  <option value="Asia/Seoul">South Korea</option>
+                  <option value="Australia/Sydney">Australia East</option>
+                  <option value="Australia/Perth">Australia West</option>
+                </optgroup>
+              </select>
+            </div>
+            {prof.customTZ&&<div style={{fontSize:11,color:"#FBBF24",marginTop:6}}>⚙ Manual override active — auto-detect ignored</div>}
+          </div>
+
           {/* Mark Sent */}
           <div style={{background:t.card,borderRadius:13,padding:18,marginBottom:14,border:`1px solid ${t.border}`}}>
             <div style={{fontSize:11,color:t.muted,marginBottom:12,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.8px"}}>✉️ Mark Email Sent</div>
